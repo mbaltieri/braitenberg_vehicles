@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 100
+T = 300
 iterations = int(T/dt)
 
 ### agent ###
@@ -37,6 +37,7 @@ w_orig = np.random.standard_normal((nodes,nodes))
 
 # data (history)
 pos_centre_history = np.zeros((2,iterations))
+vel_centre_history = np.zeros((1,iterations))
 vel_history = np.zeros((2,iterations))
 theta_history = np.zeros((1,iterations))
 orientation_history = np.zeros((2,2,iterations))
@@ -45,7 +46,7 @@ sensor_history = np.zeros((2,iterations))
 ### environment ###
 
 # light source
-pos_centre_light = np.array([19,27])
+pos_centre_light = np.array([49,47])
 light_intensity = 200
 
 def light_level(point):
@@ -74,10 +75,10 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 
 
 ### initialise variables ###
-pos_centre = np.array([[52.],[39.]])
+pos_centre = np.array([[12.],[39.]])
 
 omega = 0
-theta = np.pi
+theta = np.pi/2
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
@@ -96,15 +97,20 @@ for i in range(iterations-1):
 #    vel[0] = x[i,0,1]                   # attach neuron to motor
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
-    vel[0] = np.tanh(sensor[0])                   # attach neuron to motor
-    vel[1] = np.tanh(sensor[1])                   # attach neuron to motor
+    # vehicle 2
+    vel[0] = np.tanh(sensor[1])                   # attach neuron to motor
+    vel[1] = np.tanh(sensor[0])                   # attach neuron to motor
+    
+    # vehicle 3
+#    vel[0] = 1-np.tanh(sensor[0])                   # attach neuron to motor
+#    vel[1] = 1-np.tanh(sensor[1])                   # attach neuron to motor
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
-    pos_centre += dt*vel_centre
+    pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
     
     # rotation
-    omega = 5*np.float((vel[0]-vel[1])/(2*radius))
+    omega = 5*np.float((vel[1]-vel[0])/(2*radius))
     theta += dt*omega
     
     # update plot
@@ -118,10 +124,13 @@ for i in range(iterations-1):
         fig.canvas.draw()
     #input("\nPress Enter to continue.")                                                    # adds a pause
 
-    # save data    
+    # save data
+    vel_centre_history[0,i] = vel_centre
     pos_centre_history[:,i] = pos_centre[:,0]
     vel_history[:,i] = vel[:,0]
     theta_history[:,i] = theta    
     #orientation_history[:,:,i] = orientation
     sensor_history[:,i] = sensor[:,0]
 
+plt.figure(1)
+plt.plot(range(iterations), vel_centre_history[0,:])
