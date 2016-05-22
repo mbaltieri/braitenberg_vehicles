@@ -98,12 +98,12 @@ for i in range(iterations-1):
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
     # vehicle 2
-    vel[0] = np.tanh(sensor[1])                   # attach neuron to motor
-    vel[1] = np.tanh(sensor[0])                   # attach neuron to motor
+#    vel[0] = np.tanh(sensor[1])                   # attach neuron to motor
+#    vel[1] = np.tanh(sensor[0])                   # attach neuron to motor
     
     # vehicle 3
-#    vel[0] = 1-np.tanh(sensor[0])                   # attach neuron to motor
-#    vel[1] = 1-np.tanh(sensor[1])                   # attach neuron to motor
+    vel[0] = 1-np.tanh(sensor[0])                   # attach neuron to motor
+    vel[1] = 1-np.tanh(sensor[1])                   # attach neuron to motor
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
@@ -114,7 +114,7 @@ for i in range(iterations-1):
     theta += dt*omega
     
     # update plot
-    if np.mod(i,100)==0:                                                                    # don't update at each time step, too computationally expensive
+    if np.mod(i,200)==0:                                                                    # don't update at each time step, too computationally expensive
         orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
         orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)
         line1.set_xdata(pos_centre[0])
@@ -131,6 +131,3 @@ for i in range(iterations-1):
     theta_history[:,i] = theta    
     #orientation_history[:,:,i] = orientation
     sensor_history[:,i] = sensor[:,0]
-
-plt.figure(1)
-plt.plot(range(iterations), vel_centre_history[0,:])
