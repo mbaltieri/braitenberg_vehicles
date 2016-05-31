@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 300
+T = 1000
 iterations = int(T/dt)
 
 ### agent ###
@@ -46,7 +46,7 @@ sensor_history = np.zeros((2,iterations))
 ### environment ###
 
 # light source
-pos_centre_light = np.array([49,47])
+pos_centre_light = np.array([39,47])
 light_intensity = 200
 
 def light_level(point):
@@ -75,7 +75,7 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 
 
 ### initialise variables ###
-pos_centre = np.array([[12.],[39.]])
+pos_centre = np.array([[2.],[39.]])
 
 omega = 0
 theta = np.pi/2
@@ -102,15 +102,15 @@ for i in range(iterations-1):
 #    vel[1] = np.tanh(sensor[0])                   # attach neuron to motor
     
     # vehicle 3
-    vel[0] = 1-np.tanh(sensor[0])                   # attach neuron to motor
-    vel[1] = 1-np.tanh(sensor[1])                   # attach neuron to motor
+    vel[0] = .5*(1-np.tanh(sensor[0]))                   # attach neuron to motor
+    vel[1] = .5*(1-np.tanh(sensor[1]))                   # attach neuron to motor
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
     pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
     
     # rotation
-    omega = 5*np.float((vel[1]-vel[0])/(2*radius))
+    omega = 10*np.float((vel[1]-vel[0])/(2*radius))
     theta += dt*omega
     
     # update plot
@@ -131,3 +131,8 @@ for i in range(iterations-1):
     theta_history[:,i] = theta    
     #orientation_history[:,:,i] = orientation
     sensor_history[:,i] = sensor[:,0]
+    
+plt.figure(1)
+plt.plot(pos_centre_history[0,:-1], pos_centre_history[1,:-1])
+plt.xlim((0,100))
+plt.ylim((0,100))
