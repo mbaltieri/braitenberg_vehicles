@@ -42,16 +42,21 @@ w_orig = np.random.standard_normal((nodes,nodes))
 rho = np.zeros((variables,temp_orders))
 
 mu_x = np.zeros((variables,temp_orders))
+mu_d = np.array([[8],[8]])
 
 eps_z = np.zeros((variables,temp_orders))
 eps_w = np.zeros((motors_n,temp_orders))
+eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
+xi_w2 = np.zeros((sensors_n,temp_orders))
 pi_z = 100*np.ones((variables,temp_orders))
-#pi_z[2:4,0] *= .000000001
+pi_z[sensors_n:variables,0] *= 100
 pi_w = 1000*np.ones((motors_n,temp_orders))
+pi_w2 = 10000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(2*pi_z))
 sigma_w = 1/(np.sqrt(2*pi_w))
+sigma_w2 = 1/(np.sqrt(2*pi_w2))
 
 FE = np.zeros((iterations,))
 
@@ -68,6 +73,9 @@ w = np.zeros((motors_n,iterations))
 w[0,:] = sigma_w[0,0]*np.random.randn(1,iterations)
 w[1,:] = sigma_w[1,0]*np.random.randn(1,iterations)
 
+w2 = np.zeros((sensors_n,iterations))
+w2[0,:] = sigma_w2[0,0]*np.random.randn(1,iterations)
+w2[1,:] = sigma_w2[1,0]*np.random.randn(1,iterations)
 
 # data (history)
 pos_centre_history = np.zeros((2,iterations))
@@ -79,6 +87,7 @@ sensor_history = np.zeros((sensors_n,iterations))
 rho_history = np.zeros((variables,iterations))                  # noisy version of the sensors
 
 mu_x_history = np.zeros((iterations,variables,temp_orders))
+mu_d_history = np.zeros((iterations,sensors_n,temp_orders))
 a_history = np.zeros((iterations,motors_n))
 
 ### environment ###
@@ -174,20 +183,25 @@ for i in range(iterations-1):
     # add noise and fluctuations
     rho[0:sensors_n,0] = sensor + z[0:sensors_n,i]
     rho[sensors_n:variables,0] = np.squeeze(vel) + z[sensors_n:variables,i]
-    
-    mu_x[sensors_n:variables,0] += w[:,i]
 
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]
     
-    eps_w[:,0] = mu_x[sensors_n:variables,0] - f(mu_x[0:sensors_n,0])
+    mu_x[sensors_n:variables,0] += w[:,i]
+    
+    #eps_w[:,0] = mu_x[sensors_n:variables,0] - f(mu_x[0:sensors_n,0])
+    eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[1,0])
+    eps_w[1,0] = mu_x[sensors_n+1,0] - f(mu_x[0,0])
     xi_w[:,0] = pi_w[:,0]*eps_w[:,0]
     
-    FE[i] = .5*(np.trace(np.dot(eps_z,np.transpose(xi_z))) + np.trace(np.dot(eps_w,np.transpose(xi_w))))
+    eps_w2[:,0] = mu_x[0:sensors_n,0] - mu_d[:,0]
+    xi_w2[:,0] = pi_w2[:,0]*eps_w2[:,0]
+    
+    FE[i] = .5*(np.trace(np.dot(eps_z,np.transpose(xi_z))) + np.trace(np.dot(eps_w,np.transpose(xi_w))) + np.trace(np.dot(eps_w2,np.transpose(xi_w2))))
     
     # perception
     #dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + xi_w[:,0]*-dfdmu_x(mu_x[:,0]), xi_w[:,0]]))
-    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*-dfdmu_x(mu_x[0:sensors_n,0]), xi_w[:,0]])]))    
+    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*-dfdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))    
     mu_x += dt* -eta_mu_x*dFdmu_x
     
     # action
@@ -214,6 +228,7 @@ for i in range(iterations-1):
     rho_history[:,i] = np.squeeze(rho[:])
     
     mu_x_history[i,:,:] = mu_x
+    mu_d_history[i,:,:] = mu_d
     a_history[i,:] = a[:,0]
     
 plt.figure(1)
@@ -224,25 +239,33 @@ plt.ylim((0,100))
 plt.figure(2)
 plt.subplot(1,2,1)
 plt.plot(range(iterations), rho_history[0,:], 'b', range(iterations), mu_x_history[:,0,0], 'r')
+plt.title("Inferred light level")
 plt.subplot(1,2,2)
 plt.plot(range(iterations), rho_history[1,:], 'b', range(iterations), mu_x_history[:,1,0], 'r')
-plt.title("Inferred light level")
+
 
 plt.figure(3)
 plt.subplot(1,2,1)
 plt.plot(range(iterations), vel_history[0,:], 'b', range(iterations), mu_x_history[:,2,0], 'r')
+plt.title("Inferred speed")
 plt.subplot(1,2,2)
 plt.plot(range(iterations), vel_history[1,:], 'b', range(iterations), mu_x_history[:,3,0], 'r')
-plt.title("Inferred speed")
+
 
 plt.figure(4)
 plt.subplot(1,2,1)
 plt.plot(range(iterations), a_history[:,0])
+plt.title("Actions")
 plt.subplot(1,2,2)
 plt.plot(range(iterations), a_history[:,1])
 
 
-
+plt.figure(5)
+plt.subplot(1,2,1)
+plt.plot(range(iterations), mu_x_history[:,0,0], 'b', range(iterations), mu_d_history[:,0,0], 'r')
+plt.title("Priors")
+plt.subplot(1,2,2)
+plt.plot(range(iterations), mu_x_history[:,1,0], 'b', range(iterations), mu_d_history[:,1,0], 'r')
 
 
 
