@@ -138,13 +138,11 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 ### initialise variables ###
 pos_centre = np.array([[76.],[79.]])            # can't start too close or too far for some reason
 pos_centre = 100*np.random.random((2,1))
-pos_centre = np.array([[4.],[77.]])
 
 vel = 2*np.random.random((2,1))-1
 
 omega = 0
 theta = np.pi*2*np.random.uniform()
-theta = 4/3*np.pi
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
