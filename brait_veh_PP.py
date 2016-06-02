@@ -50,13 +50,13 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 100*np.ones((variables,temp_orders))
+pi_z = 1000*np.ones((variables,temp_orders))
 pi_z[sensors_n:variables,0] *= 100
-pi_w = 100*np.ones((motors_n,temp_orders))
-pi_w2 = 100*np.ones((sensors_n,temp_orders))
-sigma_z = 1/(np.sqrt(2*pi_z))
-sigma_w = 1/(np.sqrt(2*pi_w))
-sigma_w2 = 1/(np.sqrt(2*pi_w2))
+pi_w = 1000*np.ones((motors_n,temp_orders))
+pi_w2 = 1000*np.ones((sensors_n,temp_orders))
+sigma_z = 1/(np.sqrt(pi_z))
+sigma_w = 1/(np.sqrt(pi_w))
+sigma_w2 = 1/(np.sqrt(pi_w2))
 
 FE = np.zeros((iterations,))
 
@@ -136,17 +136,22 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 
 
 ### initialise variables ###
-pos_centre = np.array([[66.],[29.]])
+pos_centre = np.array([[76.],[79.]])            # can't start too close or too far for some reason
+pos_centre = 100*np.random.random((2,1))
+pos_centre = np.array([[4.],[77.]])
+
+vel = 2*np.random.random((2,1))-1
 
 omega = 0
-theta = np.pi/2
+theta = np.pi*2*np.random.uniform()
+theta = 4/3*np.pi
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-eta_mu_x = .001*np.ones((variables,temp_orders))
-eta_a = .001*np.ones((motors_n,1))
+eta_mu_x = .0001*np.ones((variables,temp_orders))
+eta_a = .0001*np.ones((motors_n,1))
 
 for i in range(iterations-1):
     print(i)
@@ -175,7 +180,7 @@ for i in range(iterations-1):
     pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
     
     # rotation
-    omega = 10*np.float((vel[1]-vel[0])/(2*radius))
+    omega = 20*np.float((vel[1]-vel[0])/(2*radius))
     theta += dt*omega
     
     ### inference ###
@@ -183,6 +188,7 @@ for i in range(iterations-1):
     # add noise and fluctuations
     rho[0:sensors_n,0] = sensor + z[0:sensors_n,i]
     rho[sensors_n:variables,0] = np.squeeze(vel) + z[sensors_n:variables,i]
+    mu_x[sensors_n:variables,0] += w[:,i]/100
 
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]
