@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 300
+T = 1000
 iterations = int(T/dt)
 
 ### agent ###
@@ -42,7 +42,7 @@ w_orig = np.random.standard_normal((nodes,nodes))
 rho = np.zeros((variables,temp_orders))
 
 mu_x = np.zeros((variables,temp_orders))
-mu_d = np.array([[8],[8]])
+mu_d = np.array([[2],[2]])
 
 eps_z = np.zeros((variables,temp_orders))
 eps_w = np.zeros((motors_n,temp_orders))
@@ -52,8 +52,8 @@ xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
 pi_z = 100*np.ones((variables,temp_orders))
 pi_z[sensors_n:variables,0] *= 100
-pi_w = 1000*np.ones((motors_n,temp_orders))
-pi_w2 = 10000*np.ones((sensors_n,temp_orders))
+pi_w = 100*np.ones((motors_n,temp_orders))
+pi_w2 = 100*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(2*pi_z))
 sigma_w = 1/(np.sqrt(2*pi_w))
 sigma_w2 = 1/(np.sqrt(2*pi_w2))
@@ -136,7 +136,7 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 
 
 ### initialise variables ###
-pos_centre = np.array([[22.],[39.]])
+pos_centre = np.array([[66.],[29.]])
 
 omega = 0
 theta = np.pi/2
@@ -145,8 +145,8 @@ x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-eta_mu_x = .01*np.ones((variables,temp_orders))
-eta_a = .01*np.ones((motors_n,1))
+eta_mu_x = .001*np.ones((variables,temp_orders))
+eta_a = .001*np.ones((motors_n,1))
 
 for i in range(iterations-1):
     print(i)
@@ -187,7 +187,7 @@ for i in range(iterations-1):
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]
     
-    mu_x[sensors_n:variables,0] += w[:,i]
+    #mu_x[sensors_n:variables,0] += w[:,i]
     
     #eps_w[:,0] = mu_x[sensors_n:variables,0] - f(mu_x[0:sensors_n,0])
     eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[1,0])
@@ -235,6 +235,7 @@ plt.figure(1)
 plt.plot(pos_centre_history[0,:-1], pos_centre_history[1,:-1])
 plt.xlim((0,100))
 plt.ylim((0,100))
+plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
 
 plt.figure(2)
 plt.subplot(1,2,1)
