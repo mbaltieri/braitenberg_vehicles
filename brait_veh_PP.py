@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 1000
+T = 300
 iterations = int(T/dt)
 
 ### agent ###
@@ -50,10 +50,10 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 1000*np.ones((variables,temp_orders))
-pi_z[sensors_n:variables,0] *= 100
+pi_z = 10000*np.ones((variables,temp_orders))
+pi_z[sensors_n:variables,0] *= .001
 pi_w = 1000*np.ones((motors_n,temp_orders))
-pi_w2 = 1000*np.ones((sensors_n,temp_orders))
+pi_w2 = .0000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
 sigma_w = 1/(np.sqrt(pi_w))
 sigma_w2 = 1/(np.sqrt(pi_w2))
@@ -136,10 +136,11 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 
 
 ### initialise variables ###
-pos_centre = np.array([[76.],[79.]])            # can't start too close or too far for some reason
-pos_centre = 100*np.random.random((2,1))
+pos_centre = np.array([[47.],[55.]])            # can't start too close or too far for some reason
+#pos_centre = 100*np.random.random((2,1))
+#pos_centre = 5*np.random.standard_normal((2,1))+pos_centre_light
 
-vel = 2*np.random.random((2,1))-1
+#vel = 2*np.random.random((2,1))-1
 
 omega = 0
 theta = np.pi*2*np.random.uniform()
@@ -148,8 +149,8 @@ x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-eta_mu_x = .0001*np.ones((variables,temp_orders))
-eta_a = .0001*np.ones((motors_n,1))
+eta_mu_x = .001*np.ones((variables,temp_orders))
+eta_a = 1*np.ones((motors_n,1))
 
 for i in range(iterations-1):
     print(i)
@@ -166,8 +167,8 @@ for i in range(iterations-1):
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
     # vehicle 2
-    vel[0] = f(sensor[1]) + np.tanh(a[0])                   # attach neuron to motor
-    vel[1] = f(sensor[0]) + np.tanh(a[1])                   # attach neuron to motor
+    vel[0] =  + np.tanh(a[0])                   # attach neuron to motor
+    vel[1] =  + np.tanh(a[1])                   # attach neuron to motor
     
     # vehicle 3
 #    vel[0] = f(sensor[0])                   # attach neuron to motor
@@ -184,9 +185,9 @@ for i in range(iterations-1):
     ### inference ###
     
     # add noise and fluctuations
-    rho[0:sensors_n,0] = sensor + z[0:sensors_n,i]
-    rho[sensors_n:variables,0] = np.squeeze(vel) + z[sensors_n:variables,i]
-    mu_x[sensors_n:variables,0] += w[:,i]/100
+    rho[0:sensors_n,0] = sensor #+ z[0:sensors_n,i]
+    rho[sensors_n:variables,0] = np.squeeze(vel) #+ z[sensors_n:variables,i]
+    #mu_x[sensors_n:variables,0] += w[:,i]/100
 
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]
@@ -240,6 +241,7 @@ plt.plot(pos_centre_history[0,:-1], pos_centre_history[1,:-1])
 plt.xlim((0,100))
 plt.ylim((0,100))
 plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
+plt.plot(pos_centre_history[0,0], pos_centre_history[1,0], color='red', marker='o', markersize=8)
 
 plt.figure(2)
 plt.subplot(1,2,1)
@@ -273,5 +275,7 @@ plt.subplot(1,2,2)
 plt.plot(range(iterations), mu_x_history[:,1,0], 'b', range(iterations), mu_d_history[:,1,0], 'r')
 
 
-
+plt.figure(6)
+plt.plot(range(iterations), FE)
+plt.title("Free energy")
 
