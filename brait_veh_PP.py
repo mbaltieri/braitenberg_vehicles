@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 300
+T = 1000
 iterations = int(T/dt)
 
 ### agent ###
@@ -53,7 +53,7 @@ xi_w2 = np.zeros((sensors_n,temp_orders))
 pi_z = 10000*np.ones((variables,temp_orders))
 pi_z[sensors_n:variables,0] *= .001
 pi_w = 1000*np.ones((motors_n,temp_orders))
-pi_w2 = .0000000012000*np.ones((sensors_n,temp_orders))
+pi_w2 = .0000000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
 sigma_w = 1/(np.sqrt(pi_w))
 sigma_w2 = 1/(np.sqrt(pi_w2))
@@ -119,38 +119,42 @@ def dfdmu_x(sensed_value):
 
 # plot initial position
 plt.close('all')
-fig = plt.figure(0)
-    
-plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
-
-orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
-orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
-
-plt.xlim((0,100))
-plt.ylim((0,100))
-
-# update the plot thrpugh objects
-ax = fig.add_subplot(111)
-line1, = ax.plot(pos_centre[0], pos_centre[1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
-line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
+#fig = plt.figure(0)
+#    
+#plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
+#
+#orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
+#orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
+#
+#plt.xlim((0,100))
+#plt.ylim((0,100))
+#
+## update the plot thrpugh objects
+#ax = fig.add_subplot(111)
+#line1, = ax.plot(pos_centre[0], pos_centre[1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
+#line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
 
 
 ### initialise variables ###
 pos_centre = np.array([[47.],[55.]])            # can't start too close or too far for some reason
-#pos_centre = 100*np.random.random((2,1))
+pos_centre = 100*np.random.random((2,1))
 #pos_centre = 5*np.random.standard_normal((2,1))+pos_centre_light
 
 #vel = 2*np.random.random((2,1))-1
 
 omega = 0
 theta = np.pi*2*np.random.uniform()
+#theta =np.pi/3
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-eta_mu_x = .001*np.ones((variables,temp_orders))
-eta_a = 1*np.ones((motors_n,1))
+eta_mu_x = .01*np.ones((variables,temp_orders))
+eta_a = 10*np.ones((motors_n,1))
+
+sensor1_pos_history = np.zeros((2,iterations))
+sensor2_pos_history = np.zeros((2,iterations))
 
 for i in range(iterations-1):
     print(i)
@@ -159,6 +163,8 @@ for i in range(iterations-1):
 #    x[i+1,:,0] = x[i,:,0] + dt*x[i,:,1]
     
     # perception
+    sensor1_pos_history[:,i] = np.squeeze(radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))
+    sensor2_pos_history[:,i] = np.squeeze(radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))
     sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
     sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
     
@@ -185,9 +191,9 @@ for i in range(iterations-1):
     ### inference ###
     
     # add noise and fluctuations
-    rho[0:sensors_n,0] = sensor #+ z[0:sensors_n,i]
-    rho[sensors_n:variables,0] = np.squeeze(vel) #+ z[sensors_n:variables,i]
-    #mu_x[sensors_n:variables,0] += w[:,i]/100
+    rho[0:sensors_n,0] = sensor + z[0:sensors_n,i]
+    rho[sensors_n:variables,0] = np.squeeze(vel) + z[sensors_n:variables,i]
+    mu_x[sensors_n:variables,0] += w[:,i]/1
 
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]
