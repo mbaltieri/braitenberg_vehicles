@@ -46,12 +46,13 @@ sensor_history = np.zeros((2,iterations))
 ### environment ###
 
 # light source
-pos_centre_light = np.array([39,47])
+pos_centre_light = np.array([39.,47.])
 light_intensity = 200
 
 def light_level(point):
     distance = np.linalg.norm(pos_centre_light - point)
     return light_intensity/(distance**2)
+#    return light_intensity*np.exp(-distance)
 
 
 ### plot ###
@@ -75,10 +76,11 @@ line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)
 
 
 ### initialise variables ###
-pos_centre = np.array([[2.],[39.]])
+pos_centre = np.array([[47.],[55.]])
+pos_centre = 100*np.random.random((2,1))
 
 omega = 0
-theta = np.pi/2
+theta = np.pi/3
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
@@ -98,19 +100,19 @@ for i in range(iterations-1):
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
     # vehicle 2
-#    vel[0] = np.tanh(sensor[1])                   # attach neuron to motor
-#    vel[1] = np.tanh(sensor[0])                   # attach neuron to motor
+    vel[0] = sensor[1]                   # attach neuron to motor
+    vel[1] = sensor[0]                   # attach neuron to motor
     
     # vehicle 3
-    vel[0] = .5*(1-np.tanh(sensor[0]))                   # attach neuron to motor
-    vel[1] = .5*(1-np.tanh(sensor[1]))                   # attach neuron to motor
+#    vel[0] = .5*(1-1/np.exp(-sensor[0]))                   # attach neuron to motor
+#    vel[1] = .5*(1-1/np.exp(-sensor[1]))                   # attach neuron to motor
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
     pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
     
     # rotation
-    omega = 10*np.float((vel[1]-vel[0])/(2*radius))
+    omega = 20*np.float((vel[1]-vel[0])/(2*radius))
     theta += dt*omega
     
     # update plot
