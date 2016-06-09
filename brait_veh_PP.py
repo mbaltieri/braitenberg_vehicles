@@ -193,7 +193,7 @@ for i in range(iterations-1):
     # add noise and fluctuations
     rho[0:sensors_n,0] = sensor + z[0:sensors_n,i]
     rho[sensors_n:variables,0] = np.squeeze(vel) + z[sensors_n:variables,i]
-    mu_x[sensors_n:variables,0] += w[:,i]/1
+    #mu_x[sensors_n:variables,0] += w[:,i]/1
 
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]

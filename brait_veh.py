@@ -59,20 +59,20 @@ def light_level(point):
 
 # plot initial pos_centreition
 plt.close('all')
-fig = plt.figure(0)
-    
-plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
-
-orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
-orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
-
-plt.xlim((0,100))
-plt.ylim((0,100))
-
-# update the plot thrpugh objects
-ax = fig.add_subplot(111)
-line1, = ax.plot(pos_centre[0], pos_centre[1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
-line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
+#fig = plt.figure(0)
+#    
+#plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
+#
+#orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
+#orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
+#
+#plt.xlim((0,100))
+#plt.ylim((0,100))
+#
+## update the plot thrpugh objects
+#ax = fig.add_subplot(111)
+#line1, = ax.plot(pos_centre[0], pos_centre[1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
+#line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
 
 
 ### initialise variables ###
@@ -86,7 +86,11 @@ x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
+noise = .1*np.random.randn(2,iterations)
+
 for i in range(iterations-1):
+    print(i)
+    
     # brain
     x[i,:,1] = 1/alpha*(- x[i,:,0] + np.tanh(np.dot(w_orig,x[i,:,0]))) + n[i,]
     x[i+1,:,0] = x[i,:,0] + dt*x[i,:,1]    
@@ -94,6 +98,8 @@ for i in range(iterations-1):
     # perception
     sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
     sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
+    
+    sensor += noise[:,i,None]
     
     # action
 #    vel[0] = x[i,0,1]                   # attach neuron to motor
@@ -116,14 +122,14 @@ for i in range(iterations-1):
     theta += dt*omega
     
     # update plot
-    if np.mod(i,200)==0:                                                                    # don't update at each time step, too computationally expensive
-        orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
-        orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)
-        line1.set_xdata(pos_centre[0])
-        line1.set_ydata(pos_centre[1])
-        line2.set_xdata(orientation[0,:])
-        line2.set_ydata(orientation[1,:])
-        fig.canvas.draw()
+#    if np.mod(i,200)==0:                                                                    # don't update at each time step, too computationally expensive
+#        orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
+#        orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)
+#        line1.set_xdata(pos_centre[0])
+#        line1.set_ydata(pos_centre[1])
+#        line2.set_xdata(orientation[0,:])
+#        line2.set_ydata(orientation[1,:])
+#        fig.canvas.draw()
     #input("\nPress Enter to continue.")                                                    # adds a pause
 
     # save data
