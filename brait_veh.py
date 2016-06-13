@@ -76,17 +76,17 @@ plt.close('all')
 
 
 ### initialise variables ###
-pos_centre = np.array([[47.],[55.]])
-pos_centre = 100*np.random.random((2,1))
+pos_centre = np.array([[67.],[85.]])
+#pos_centre = 100*np.random.random((2,1))
 
 omega = 0
-theta = np.pi/3
+theta = 4*np.pi/3
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-noise = .1*np.random.randn(2,iterations)
+noise = .3*np.random.randn(2,iterations)
 
 for i in range(iterations-1):
     print(i)
@@ -106,19 +106,19 @@ for i in range(iterations-1):
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
     # vehicle 2
-    vel[0] = sensor[1]                   # attach neuron to motor
-    vel[1] = sensor[0]                   # attach neuron to motor
+#    vel[0] = sensor[1]                   # attach neuron to motor
+#    vel[1] = sensor[0]                   # attach neuron to motor
     
     # vehicle 3
-#    vel[0] = .5*(1-1/np.exp(-sensor[0]))                   # attach neuron to motor
-#    vel[1] = .5*(1-1/np.exp(-sensor[1]))                   # attach neuron to motor
+    vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
+    vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
     pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
     
     # rotation
-    omega = 20*np.float((vel[1]-vel[0])/(2*radius))
+    omega = 50*np.float((vel[1]-vel[0])/(2*radius))
     theta += dt*omega
     
     # update plot
@@ -142,5 +142,13 @@ for i in range(iterations-1):
     
 plt.figure(1)
 plt.plot(pos_centre_history[0,:-1], pos_centre_history[1,:-1])
+plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
 plt.xlim((0,100))
 plt.ylim((0,100))
+
+plt.figure(2)
+plt.subplot(1,2,1)
+plt.plot(range(iterations), sensor_history[0,:], 'b')
+plt.title("Light intensity")
+plt.subplot(1,2,2)
+plt.plot(range(iterations), sensor_history[1,:], 'b')

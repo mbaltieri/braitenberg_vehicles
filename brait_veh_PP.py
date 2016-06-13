@@ -50,9 +50,9 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 10000*np.ones((variables,temp_orders))
-pi_z[sensors_n:variables,0] *= .001
-pi_w = 1000*np.ones((motors_n,temp_orders))
+pi_z = 1*np.ones((variables,temp_orders))
+pi_z[sensors_n:variables,0] *= .01
+pi_w = .1*np.ones((motors_n,temp_orders))
 pi_w2 = .0000000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
 sigma_w = 1/(np.sqrt(pi_w))
@@ -103,9 +103,16 @@ def light_level(point):
 def f(sensed_value):
     # vehicles 2
     return np.tanh(sensed_value)
-
+    
     # vehicles 3
-#    return .5*(1-np.tanh(sensed_value))
+    # return .5*(1-np.tanh(sensed_value))
+    
+def s(sensed_value):
+    # vehicles 3
+    return 1/(1+np.exp(-sensed_value))
+    
+def dsda(sensed_value):
+    return s(sensed_value)*(1-s(sensed_value))
 
 def dfdmu_x(sensed_value):
     # vehicles 2
@@ -138,20 +145,22 @@ plt.close('all')
 ### initialise variables ###
 pos_centre = np.array([[47.],[55.]])            # can't start too close or too far for some reason
 pos_centre = 100*np.random.random((2,1))
+pos_centre = np.array([[67.],[85.]])
 #pos_centre = 5*np.random.standard_normal((2,1))+pos_centre_light
 
 #vel = 2*np.random.random((2,1))-1
 
 omega = 0
 theta = np.pi*2*np.random.uniform()
+theta = 4*np.pi/3
 #theta =np.pi/3
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-eta_mu_x = .01*np.ones((variables,temp_orders))
-eta_a = 10*np.ones((motors_n,1))
+eta_mu_x = 10*np.ones((variables,temp_orders))
+eta_a = 100*np.ones((motors_n,1))
 
 sensor1_pos_history = np.zeros((2,iterations))
 sensor2_pos_history = np.zeros((2,iterations))
@@ -177,15 +186,15 @@ for i in range(iterations-1):
     vel[1] =  + np.tanh(a[1])                   # attach neuron to motor
     
     # vehicle 3
-#    vel[0] = f(sensor[0])                   # attach neuron to motor
-#    vel[1] = f(sensor[1])                   # attach neuron to motor
+    vel[0] = 1-s(a[0])                   # attach neuron to motor
+    vel[1] = 1-s(a[1])                   # attach neuron to motor
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
     pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
     
     # rotation
-    omega = 20*np.float((vel[1]-vel[0])/(2*radius))
+    omega = 50*np.float((vel[1]-vel[0])/(2*radius))
     theta += dt*omega
     
     ### inference ###
@@ -216,7 +225,8 @@ for i in range(iterations-1):
     mu_x += dt* -eta_mu_x*dFdmu_x
     
     # action
-    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*(1-np.tanh(a[:,0])**2)]))
+#    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*(1-np.tanh(a[:,0])**2)]))             # vehicle 2
+    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*-dsda(a[:,0])]))             # vehicle 3
     a += dt* -eta_a*dFda
     
     # update plot
