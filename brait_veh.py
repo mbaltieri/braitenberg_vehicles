@@ -81,12 +81,14 @@ pos_centre = np.array([[67.],[85.]])
 
 omega = 0
 theta = 4*np.pi/3
+theta = np.pi*2*np.random.uniform()
 
 x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-noise = .3*np.random.randn(2,iterations)
+noise_sens = .1*np.random.randn(2,iterations)
+noise_vel = .3*np.random.randn(2,iterations)
 
 for i in range(iterations-1):
     print(i)
@@ -99,7 +101,7 @@ for i in range(iterations-1):
     sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
     sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
     
-    sensor += noise[:,i,None]
+    sensor += noise_sens[:,i,None]
     
     # action
 #    vel[0] = x[i,0,1]                   # attach neuron to motor
@@ -112,6 +114,8 @@ for i in range(iterations-1):
     # vehicle 3
     vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
     vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
+    
+    vel += noise_vel[:,i,None]
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
