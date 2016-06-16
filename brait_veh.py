@@ -87,8 +87,8 @@ x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-noise_sens = .1*np.random.randn(2,iterations)
-noise_vel = .3*np.random.randn(2,iterations)
+noise_sens = .032*np.random.randn(2,iterations)
+noise_vel = .32*np.random.randn(2,iterations)
 
 for i in range(iterations-1):
     print(i)
