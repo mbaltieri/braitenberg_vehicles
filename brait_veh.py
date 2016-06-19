@@ -87,7 +87,7 @@ x[0,:,0] = x_init
 w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
-noise_sens = .032*np.random.randn(2,iterations)
+noise_sens = .32*np.random.randn(2,iterations)
 noise_vel = .32*np.random.randn(2,iterations)
 
 for i in range(iterations-1):
@@ -115,7 +115,7 @@ for i in range(iterations-1):
     vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
     vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
     
-    vel += noise_vel[:,i,None]
+    #vel += noise_vel[:,i,None]
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
