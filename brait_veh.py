@@ -84,66 +84,65 @@ theta = 4*np.pi/3
 theta = np.pi*2*np.random.uniform()
 
 x[0,:,0] = x_init
-w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
 alpha = 1*np.ones((nodes,))
 
 noise_sens = .32*np.random.randn(2,iterations)
 noise_vel = .32*np.random.randn(2,iterations)
 
-for i in range(iterations-1):
-    print(i)
-    
-    # brain
-    x[i,:,1] = 1/alpha*(- x[i,:,0] + np.tanh(np.dot(w_orig,x[i,:,0]))) + n[i,]
-    x[i+1,:,0] = x[i,:,0] + dt*x[i,:,1]    
-    
-    # perception
-    sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
-    sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
-    
-    sensor += noise_sens[:,i,None]
-    
-    # action
-#    vel[0] = x[i,0,1]                   # attach neuron to motor
-#    vel[1] = x[i,1,1]                   # attach neuron to motor
-    
-    # vehicle 2
-#    vel[0] = sensor[1]                   # attach neuron to motor
-#    vel[1] = sensor[0]                   # attach neuron to motor
-    
-    # vehicle 3
-    vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
-    vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
-    
-    #vel += noise_vel[:,i,None]
-    
-    # translation
-    vel_centre = (vel[0]+vel[1])/2
-    pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
-    
-    # rotation
-    omega = 50*np.float((vel[1]-vel[0])/(2*radius))
-    theta += dt*omega
-    
-    # update plot
-#    if np.mod(i,200)==0:                                                                    # don't update at each time step, too computationally expensive
-#        orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
-#        orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)
-#        line1.set_xdata(pos_centre[0])
-#        line1.set_ydata(pos_centre[1])
-#        line2.set_xdata(orientation[0,:])
-#        line2.set_ydata(orientation[1,:])
-#        fig.canvas.draw()
-    #input("\nPress Enter to continue.")                                                    # adds a pause
-
-    # save data
-    vel_centre_history[0,i] = vel_centre
-    pos_centre_history[:,i] = pos_centre[:,0]
-    vel_history[:,i] = vel[:,0]
-    theta_history[:,i] = theta    
-    #orientation_history[:,:,i] = orientation
-    sensor_history[:,i] = sensor[:,0]
-    
+#for i in range(iterations-1):
+#    print(i)
+#    
+#    # brain
+#    x[i,:,1] = 1/alpha*(- x[i,:,0] + np.tanh(np.dot(w_orig,x[i,:,0]))) + n[i,]
+#    x[i+1,:,0] = x[i,:,0] + dt*x[i,:,1]    
+#    
+#    # perception
+#    sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
+#    sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
+#    
+#    sensor += noise_sens[:,i,None]
+#    
+#    # action
+##    vel[0] = x[i,0,1]                   # attach neuron to motor
+##    vel[1] = x[i,1,1]                   # attach neuron to motor
+#    
+#    # vehicle 2
+##    vel[0] = sensor[1]                   # attach neuron to motor
+##    vel[1] = sensor[0]                   # attach neuron to motor
+#    
+#    # vehicle 3
+#    vel[0] = .1*(1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
+#    vel[1] = .1*(1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
+#    
+#    #vel += noise_vel[:,i,None]
+#    
+#    # translation
+#    vel_centre = (vel[0]+vel[1])/2
+#    pos_centre += dt*(vel_centre*np.array([[np.cos(theta)], [np.sin(theta)]]))
+#    
+#    # rotation
+#    omega = 50*np.float((vel[1]-vel[0])/(2*radius))
+#    theta += dt*omega
+#    
+#    # update plot
+##    if np.mod(i,200)==0:                                                                    # don't update at each time step, too computationally expensive
+##        orientation_endpoint = pos_centre + length_dir*(np.array([[np.cos(theta)], [np.sin(theta)]]))
+##        orientation = np.concatenate((pos_centre,orientation_endpoint), axis=1)
+##        line1.set_xdata(pos_centre[0])
+##        line1.set_ydata(pos_centre[1])
+##        line2.set_xdata(orientation[0,:])
+##        line2.set_ydata(orientation[1,:])
+##        fig.canvas.draw()
+#    #input("\nPress Enter to continue.")                                                    # adds a pause
+#
+#    # save data
+#    vel_centre_history[0,i] = vel_centre
+#    pos_centre_history[:,i] = pos_centre[:,0]
+#    vel_history[:,i] = vel[:,0]
+#    theta_history[:,i] = theta    
+#    #orientation_history[:,:,i] = orientation
+#    sensor_history[:,i] = sensor[:,0]
+#    
 plt.figure(1)
 plt.plot(pos_centre_history[0,:-1], pos_centre_history[1,:-1])
 plt.plot(pos_centre_light[0], pos_centre_light[1], color='orange', marker='o', markersize=20)
@@ -151,8 +150,20 @@ plt.xlim((0,100))
 plt.ylim((0,100))
 
 plt.figure(2)
-plt.subplot(1,2,1)
-plt.plot(range(iterations), sensor_history[0,:], 'b')
-plt.title("Light intensity")
-plt.subplot(1,2,2)
-plt.plot(range(iterations), sensor_history[1,:], 'b')
+data = np.zeros((100,100))
+for i in range(100):
+    for j in range(100):
+        data[i,j] = light_level(np.array([i,j])) + 3.2*np.random.randn()
+plt.imshow(data, vmin=0, vmax=10)
+plt.colorbar()
+
+plt.show()
+
+
+#
+#plt.figure(2)
+#plt.subplot(1,2,1)
+#plt.plot(range(iterations), sensor_history[0,:], 'b')
+#plt.title("Light intensity")
+#plt.subplot(1,2,2)
+#plt.plot(range(iterations), sensor_history[1,:], 'b')
