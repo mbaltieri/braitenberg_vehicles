@@ -85,9 +85,9 @@ omega = 0
 
 x[0,:,0] = x_init
 
-noise_sens_sdv = 1
+noise_sens_sdv = .000000000001
 noise_sens = noise_sens_sdv*np.random.randn(2,iterations)
-noise_vel = .32*np.random.randn(2,iterations)
+noise_vel = .000000000000032*np.random.randn(2,iterations)
 
 for i in range(iterations-1):
     print(i)
@@ -98,17 +98,13 @@ for i in range(iterations-1):
     
     sensor += noise_sens[:,i,None]
     
-    # action
-#    vel[0] = x[i,0,1]                   # attach neuron to motor
-#    vel[1] = x[i,1,1]                   # attach neuron to motor
-    
     # vehicle 2
-#    vel[0] = sensor[1]                   # attach neuron to motor
-#    vel[1] = sensor[0]                   # attach neuron to motor
+    vel[0] = np.tanh(sensor[1])                   # attach neuron to motor
+    vel[1] = np.tanh(sensor[0])                   # attach neuron to motor
     
     # vehicle 3
-    vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
-    vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
+#    vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
+#    vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
     
     vel += noise_vel[:,i,None]
     

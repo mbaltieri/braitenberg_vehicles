@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 1000
+T = 1
 iterations = int(T/dt)
 
 ### agent ###
@@ -50,9 +50,9 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 1*np.ones((variables,temp_orders))
+pi_z = 1000*np.ones((variables,temp_orders))
 pi_z[sensors_n:variables,0] *= .01
-pi_w = .1*np.ones((motors_n,temp_orders))
+pi_w = 100*np.ones((motors_n,temp_orders))
 pi_w2 = .0000000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
 sigma_w = 1/(np.sqrt(pi_w))
@@ -161,8 +161,8 @@ theta = np.pi*2*np.random.uniform()
 #theta = 4*np.pi/3
 #theta =np.pi/3
 
-eta_mu_x = 10*np.ones((variables,temp_orders))
-eta_a = 1000*np.ones((motors_n,1))
+eta_mu_x = .1*np.ones((variables,temp_orders))
+eta_a = 1*np.ones((motors_n,1))
 
 sensor1_pos_history = np.zeros((2,iterations))
 sensor2_pos_history = np.zeros((2,iterations))
@@ -176,19 +176,19 @@ for i in range(iterations-1):
     sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
     sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
     
-    sensor += + z[0:sensors_n,i]
+#    sensor += + z[0:sensors_n,i]
     
     # action
 #    vel[0] = x[i,0,1]                   # attach neuron to motor
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
     # vehicle 2
-#    vel[0] =  + np.tanh(a[0])                   # attach neuron to motor
-#    vel[1] =  + np.tanh(a[1])                   # attach neuron to motor
+    vel[0] =  f(a[1])                   # attach neuron to motor
+    vel[1] =  f(a[0])                   # attach neuron to motor
     
     # vehicle 3
-    vel[0] = 1-s(a[0])                   # attach neuron to motor
-    vel[1] = 1-s(a[1])                   # attach neuron to motor
+#    vel[0] = 1-s(a[0])                   # attach neuron to motor
+#    vel[1] = 1-s(a[1])                   # attach neuron to motor
     
     vel[:,0] += + z[sensors_n:variables,i]/100*3
     
@@ -212,10 +212,10 @@ for i in range(iterations-1):
     #mu_x[sensors_n:variables,0] += w[:,i]
     
     #eps_w[:,0] = mu_x[sensors_n:variables,0] - f(mu_x[0:sensors_n,0])
-#    eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[0,0])
-#    eps_w[1,0] = mu_x[sensors_n+1,0] - f(mu_x[1,0])
-    eps_w[0,0] = mu_x[sensors_n,0] - (1 - s(mu_x[0,0]))
-    eps_w[1,0] = mu_x[sensors_n+1,0] - (1 - s(mu_x[1,0]))
+    eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[1,0])
+    eps_w[1,0] = mu_x[sensors_n+1,0] - f(mu_x[0,0])
+#    eps_w[0,0] = mu_x[sensors_n,0] - (1 - s(mu_x[0,0]))
+#    eps_w[1,0] = mu_x[sensors_n+1,0] - (1 - s(mu_x[1,0]))
     xi_w[:,0] = pi_w[:,0]*eps_w[:,0]
     
     eps_w2[:,0] = mu_x[0:sensors_n,0] - mu_d[:,0]
@@ -225,13 +225,13 @@ for i in range(iterations-1):
     
     # perception
     #dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + xi_w[:,0]*-dfdmu_x(mu_x[:,0]), xi_w[:,0]]))
-    #dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*-dfdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))
-    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*+dsdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))
+    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([np.flipud(xi_w[:,0])*-dfdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))
+#    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*+dsdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))
     mu_x += dt* -eta_mu_x*dFdmu_x
     
     # action
-#    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*(1-np.tanh(a[:,0])**2)]))             # vehicle 2
-    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*-dsda(a[:,0])]))             # vehicle 3
+    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*(1-np.tanh(a[:,0])**2)]))             # vehicle 2
+#    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*-dsda(a[:,0])]))             # vehicle 3
     a += dt* -eta_a*dFda
     
     # update plot
