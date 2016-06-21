@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 1
+T = 1000
 iterations = int(T/dt)
 
 ### agent ###
@@ -162,7 +162,7 @@ theta = np.pi*2*np.random.uniform()
 #theta =np.pi/3
 
 eta_mu_x = .1*np.ones((variables,temp_orders))
-eta_a = 1*np.ones((motors_n,1))
+eta_a = 10*np.ones((motors_n,1))
 
 sensor1_pos_history = np.zeros((2,iterations))
 sensor2_pos_history = np.zeros((2,iterations))
@@ -176,7 +176,7 @@ for i in range(iterations-1):
     sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
     sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
     
-#    sensor += + z[0:sensors_n,i]
+    sensor += + z[0:sensors_n,i]
     
     # action
 #    vel[0] = x[i,0,1]                   # attach neuron to motor
@@ -230,7 +230,7 @@ for i in range(iterations-1):
     mu_x += dt* -eta_mu_x*dFdmu_x
     
     # action
-    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*(1-np.tanh(a[:,0])**2)]))             # vehicle 2
+    dFda = np.transpose(np.array([np.flipud(xi_z[sensors_n:variables,0])*(1-np.tanh(a[:,0])**2)]))             # vehicle 2
 #    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*-dsda(a[:,0])]))             # vehicle 3
     a += dt* -eta_a*dFda
     
@@ -294,7 +294,6 @@ plt.plot(range(iterations), a_history[:,1])
 #plt.title("Priors")
 #plt.subplot(1,2,2)
 #plt.plot(range(iterations), mu_x_history[:,1,0], 'b', range(iterations), mu_d_history[:,1,0], 'r')
-
 
 plt.figure(6)
 plt.plot(range(iterations), FE)
