@@ -50,13 +50,13 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 1000*np.ones((variables,temp_orders))
+pi_z = 1*np.ones((variables,temp_orders))
 pi_z[sensors_n:variables,0] *= .01
-pi_w = 100*np.ones((motors_n,temp_orders))
+pi_w = .1*np.ones((motors_n,temp_orders))
 pi_w2 = .0000000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
 sigma_w = 1/(np.sqrt(pi_w))
-sigma_w2 = 1/(np.sqrt(pi_w2))
+sigma_w2 = np.zeros((2,1))#1/(np.sqrt(pi_w2))
 
 FE = np.zeros((iterations,))
 
@@ -96,7 +96,7 @@ a_history = np.zeros((iterations,motors_n))
 ### environment ###
 
 # light source
-pos_centre_light = np.array([39,47])
+pos_centre_light = np.array([[39.],[47.]])
 light_intensity = 200
 
 def light_level(point):
@@ -113,6 +113,9 @@ def f(sensed_value):
 def s(sensed_value):
     # vehicles 3
     return 1/(1+np.exp(-sensed_value))
+    
+def dsdmu_x(sensed_value):
+    return s(sensed_value)*(1-s(sensed_value))
     
 def dsda(sensed_value):
     return s(sensed_value)*(1-s(sensed_value))
@@ -158,25 +161,18 @@ theta = np.pi*2*np.random.uniform()
 #theta = 4*np.pi/3
 #theta =np.pi/3
 
-x[0,:,0] = x_init
-w_orig = np.array([[ 1.12538509, -2.00524372, 0.64383674], [-0.61054784, 0.15221595, -0.36371622], [-0.02720039, 1.39925152, 0.84412855]])
-alpha = 1*np.ones((nodes,))
-
-eta_mu_x = .1*np.ones((variables,temp_orders))
-eta_a = 10*np.ones((motors_n,1))
+eta_mu_x = 10*np.ones((variables,temp_orders))
+eta_a = 1000*np.ones((motors_n,1))
 
 sensor1_pos_history = np.zeros((2,iterations))
 sensor2_pos_history = np.zeros((2,iterations))
 
 for i in range(iterations-1):
     print(i)
-    # brain
-#    x[i,:,1] = 1/alpha*(- x[i,:,0] + np.tanh(np.dot(w_orig,x[i,:,0]))) + n[i,]
-#    x[i+1,:,0] = x[i,:,0] + dt*x[i,:,1]
     
     # perception
-    sensor1_pos_history[:,i] = np.squeeze(radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))
-    sensor2_pos_history[:,i] = np.squeeze(radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))
+#    sensor1_pos_history[:,i] = np.squeeze(radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))
+#    sensor2_pos_history[:,i] = np.squeeze(radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))
     sensor[0] = light_level(pos_centre + radius*(np.array([[np.cos(theta+sensors_angle)], [np.sin(theta+sensors_angle)]])))            # left sensor
     sensor[1] = light_level(pos_centre + radius*(np.array([[np.cos(theta-sensors_angle)], [np.sin(theta-sensors_angle)]])))            # right sensor
     
@@ -187,14 +183,14 @@ for i in range(iterations-1):
 #    vel[1] = x[i,1,1]                   # attach neuron to motor
     
     # vehicle 2
-    vel[0] =  + np.tanh(a[0])                   # attach neuron to motor
-    vel[1] =  + np.tanh(a[1])                   # attach neuron to motor
+#    vel[0] =  + np.tanh(a[0])                   # attach neuron to motor
+#    vel[1] =  + np.tanh(a[1])                   # attach neuron to motor
     
     # vehicle 3
     vel[0] = 1-s(a[0])                   # attach neuron to motor
     vel[1] = 1-s(a[1])                   # attach neuron to motor
     
-    vel[:,0] += + z[sensors_n:variables,i]
+    vel[:,0] += + z[sensors_n:variables,i]/100*3
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
@@ -207,9 +203,8 @@ for i in range(iterations-1):
     ### inference ###
     
     # add noise and fluctuations
-    rho[0:sensors_n,0] = sensor
-    rho[sensors_n:variables,0] = np.squeeze(vel)
-    #mu_x[sensors_n:variables,0] += w[:,i]/1
+    rho[0:sensors_n,0] = sensor                                     # rho[0]: left sensor, rho[1]: right sensor
+    rho[sensors_n:variables,0] = np.squeeze(vel)                    # rho[2]: left sensor, rho[3]: right motor
 
     eps_z[:,0] = np.squeeze(rho - mu_x)
     xi_z[:,0] = pi_z[:,0]*eps_z[:,0]
@@ -217,8 +212,10 @@ for i in range(iterations-1):
     #mu_x[sensors_n:variables,0] += w[:,i]
     
     #eps_w[:,0] = mu_x[sensors_n:variables,0] - f(mu_x[0:sensors_n,0])
-    eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[1,0])
-    eps_w[1,0] = mu_x[sensors_n+1,0] - f(mu_x[0,0])
+#    eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[0,0])
+#    eps_w[1,0] = mu_x[sensors_n+1,0] - f(mu_x[1,0])
+    eps_w[0,0] = mu_x[sensors_n,0] - (1 - s(mu_x[0,0]))
+    eps_w[1,0] = mu_x[sensors_n+1,0] - (1 - s(mu_x[1,0]))
     xi_w[:,0] = pi_w[:,0]*eps_w[:,0]
     
     eps_w2[:,0] = mu_x[0:sensors_n,0] - mu_d[:,0]
@@ -228,7 +225,8 @@ for i in range(iterations-1):
     
     # perception
     #dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + xi_w[:,0]*-dfdmu_x(mu_x[:,0]), xi_w[:,0]]))
-    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*-dfdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))    
+    #dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*-dfdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))
+    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*+dsdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))
     mu_x += dt* -eta_mu_x*dFdmu_x
     
     # action
@@ -290,15 +288,24 @@ plt.subplot(1,2,2)
 plt.plot(range(iterations), a_history[:,1])
 
 
-plt.figure(5)
-plt.subplot(1,2,1)
-plt.plot(range(iterations), mu_x_history[:,0,0], 'b', range(iterations), mu_d_history[:,0,0], 'r')
-plt.title("Priors")
-plt.subplot(1,2,2)
-plt.plot(range(iterations), mu_x_history[:,1,0], 'b', range(iterations), mu_d_history[:,1,0], 'r')
+#plt.figure(5)
+#plt.subplot(1,2,1)
+#plt.plot(range(iterations), mu_x_history[:,0,0], 'b', range(iterations), mu_d_history[:,0,0], 'r')
+#plt.title("Priors")
+#plt.subplot(1,2,2)
+#plt.plot(range(iterations), mu_x_history[:,1,0], 'b', range(iterations), mu_d_history[:,1,0], 'r')
 
 
 plt.figure(6)
 plt.plot(range(iterations), FE)
 plt.title("Free energy")
 
+#plt.figure(7)
+#data = np.zeros((100,100))
+#for i in range(100):
+#    for j in range(100):
+#        data[i,j] = light_level(np.array([i,j])) + sigma_z[0,0]*np.random.randn()
+#plt.imshow(data, vmin=0, origin='lower')#, vmax=10)
+#plt.colorbar()
+#
+#plt.show()

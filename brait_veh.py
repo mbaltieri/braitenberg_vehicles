@@ -46,7 +46,7 @@ sensor_history = np.zeros((2,iterations))
 ### environment ###
 
 # light source
-pos_centre_light = np.array([39.,47.])
+pos_centre_light = np.array([[39.],[47.]])
 light_intensity = 200
 
 def light_level(point):
@@ -80,12 +80,12 @@ pos_centre = np.array([[67.],[85.]])
 #pos_centre = 100*np.random.random((2,1))
 
 omega = 0
-theta = 4*np.pi/3
-theta = np.pi*2*np.random.uniform()
+#theta = 4*np.pi/3
+#theta = np.pi*2*np.random.uniform()
 
 x[0,:,0] = x_init
 
-noise_sens_sdv = .0
+noise_sens_sdv = 1
 noise_sens = noise_sens_sdv*np.random.randn(2,iterations)
 noise_vel = .32*np.random.randn(2,iterations)
 
@@ -110,7 +110,7 @@ for i in range(iterations-1):
     vel[0] = (1-1/(1+np.exp(-sensor[0])))                   # attach neuron to motor
     vel[1] = (1-1/(1+np.exp(-sensor[1])))                   # attach neuron to motor
     
-    #vel += noise_vel[:,i,None]
+    vel += noise_vel[:,i,None]
     
     # translation
     vel_centre = (vel[0]+vel[1])/2
@@ -150,19 +150,19 @@ data = np.zeros((100,100))
 for i in range(100):
     for j in range(100):
         data[i,j] = light_level(np.array([i,j])) + noise_sens_sdv*np.random.randn()
-plt.imshow(data, vmin=0, vmax=10, origin='lower')#, vmax=10)
+plt.imshow(data, vmin=0, origin='lower')#, vmax=10)
 plt.colorbar()
 
 plt.show()
 
-
-
-plt.figure(3)
-plt.subplot(1,2,1)
-plt.plot(range(iterations), sensor_history[0,:], 'b')
-plt.title("Light intensity")
-plt.subplot(1,2,2)
-plt.plot(range(iterations), sensor_history[1,:], 'b')
-
-plt.figure(4)
-plt.plot(vel_history[0,:-1], vel_history[1,:-1])
+#
+#
+#plt.figure(3)
+#plt.subplot(1,2,1)
+#plt.plot(range(iterations), sensor_history[0,:], 'b')
+#plt.title("Light intensity")
+#plt.subplot(1,2,2)
+#plt.plot(range(iterations), sensor_history[1,:], 'b')
+#
+#plt.figure(4)
+#plt.plot(vel_history[0,:-1], vel_history[1,:-1])
