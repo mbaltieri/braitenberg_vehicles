@@ -21,13 +21,14 @@ pos_centre = np.zeros((2,1))                       # centre of mass
 vel = np.zeros((2,1))
 theta = 0
 
+max_speed = 5
+
 # sensors
 sensors_n = 2
 motors_n = 2
 variables = sensors_n + motors_n
 sensor = np.zeros((sensors_n,))
 
-# network (brain)
 temp_orders = 1
 
 # perceptual inference
@@ -177,8 +178,8 @@ for i in range(iterations-1):
 #    vel[1] =  f(a[0])                   # attach neuron to motor
     
     # vehicle 3
-    vel[0] = 1-s(a[0])                   # attach neuron to motor
-    vel[1] = 1-s(a[1])                   # attach neuron to motor
+    vel[0] = max_speed*(1-s(a[0]))                   # attach neuron to motor
+    vel[1] = max_speed*(1-s(a[1]))                   # attach neuron to motor
     
     vel[:,0] += + z[sensors_n:variables,i]
     
@@ -201,8 +202,8 @@ for i in range(iterations-1):
         
 #    eps_w[0,0] = mu_x[sensors_n,0] - f(mu_x[1,0])                  # vehicle 2b
 #    eps_w[1,0] = mu_x[sensors_n+1,0] - f(mu_x[0,0])                # vehicle 2b
-    eps_w[0,0] = mu_x[sensors_n,0] - (1 - s(mu_x[0,0]))             # vehicle 3a
-    eps_w[1,0] = mu_x[sensors_n+1,0] - (1 - s(mu_x[1,0]))           # vehicle 3a
+    eps_w[0,0] = mu_x[sensors_n,0] - max_speed*(1 - s(mu_x[0,0]))             # vehicle 3a
+    eps_w[1,0] = mu_x[sensors_n+1,0] - max_speed*(1 - s(mu_x[1,0]))           # vehicle 3a
     xi_w[:,0] = pi_w[:,0]*eps_w[:,0]
     
     eps_w2[:,0] = mu_x[0:sensors_n,0] - mu_d[:,0]
@@ -212,12 +213,12 @@ for i in range(iterations-1):
     
     # perception
 #    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([np.flipud(xi_w[:,0])*-dfdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))     # vehicle 2b
-    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*+dsdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))               # vehicle 3a
+    dFdmu_x = np.transpose(np.array([xi_z[:,0]*-1 + np.concatenate([xi_w[:,0]*max_speed*dsdmu_x(mu_x[0:sensors_n,0]) + xi_w2[:,0], xi_w[:,0]])]))               # vehicle 3a
     mu_x += dt* -eta_mu_x*dFdmu_x
     
     # action
 #    dFda = np.transpose(np.array([np.flipud(xi_z[sensors_n:variables,0])*(1-np.tanh(a[:,0])**2)]))              # vehicle 2b
-    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*-dsda(a[:,0])]))                                 # vehicle 3a
+    dFda = np.transpose(np.array([xi_z[sensors_n:variables,0]*-max_speed*dsda(a[:,0])]))                                 # vehicle 3a
     a += dt* -eta_a*dFda
     
     # update plot
