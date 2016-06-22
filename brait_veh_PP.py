@@ -42,9 +42,9 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 10*np.ones((variables,temp_orders))
+pi_z = 1*np.ones((variables,temp_orders))
 pi_z[sensors_n:variables,0] *= 1
-pi_w = 10*np.ones((motors_n,temp_orders))
+pi_w = 1*np.ones((motors_n,temp_orders))
 pi_w2 = .0000000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
 sigma_w = 1/(np.sqrt(pi_w))
@@ -153,7 +153,7 @@ theta = np.pi*2*np.random.uniform()
 #theta = 4*np.pi/3
 #theta =np.pi/3
 
-eta_mu_x = .1*np.ones((variables,temp_orders))
+eta_mu_x = 10*np.ones((variables,temp_orders))
 eta_a = 10*np.ones((motors_n,1))
 
 sensor1_pos_history = np.zeros((2,iterations))
