@@ -85,9 +85,9 @@ omega = 0
 
 x[0,:,0] = x_init
 
-noise_sens_sdv = .1
+noise_sens_sdv = .32
 noise_sens = noise_sens_sdv*np.random.randn(2,iterations)
-noise_vel = 1*np.random.randn(2,iterations)
+noise_vel = .32*np.random.randn(2,iterations)
 
 for i in range(iterations-1):
     print(i)

@@ -29,14 +29,6 @@ sensor = np.zeros((sensors_n,))
 
 # network (brain)
 temp_orders = 1
-nodes = 3
-
-x = np.zeros((iterations,nodes,temp_orders))
-x_init = np.random.standard_normal(nodes,)
-
-n = .0*np.random.standard_normal((iterations,nodes))
-n = np.zeros((iterations,nodes))
-w_orig = np.random.standard_normal((nodes,nodes))
 
 # perceptual inference
 rho = np.zeros((variables,temp_orders))
@@ -50,8 +42,8 @@ eps_w2 = np.zeros((sensors_n,temp_orders))
 xi_z = np.zeros((variables,temp_orders))
 xi_w = np.zeros((motors_n,temp_orders))
 xi_w2 = np.zeros((sensors_n,temp_orders))
-pi_z = 100*np.ones((variables,temp_orders))
-pi_z[sensors_n:variables,0] *= .01
+pi_z = 10*np.ones((variables,temp_orders))
+pi_z[sensors_n:variables,0] *= 1
 pi_w = 10*np.ones((motors_n,temp_orders))
 pi_w2 = .0000000000012000*np.ones((sensors_n,temp_orders))
 sigma_z = 1/(np.sqrt(pi_z))
@@ -161,7 +153,7 @@ theta = np.pi*2*np.random.uniform()
 #theta = 4*np.pi/3
 #theta =np.pi/3
 
-eta_mu_x = 1*np.ones((variables,temp_orders))
+eta_mu_x = .1*np.ones((variables,temp_orders))
 eta_a = 10*np.ones((motors_n,1))
 
 sensor1_pos_history = np.zeros((2,iterations))
@@ -293,12 +285,12 @@ plt.figure(6)
 plt.plot(range(iterations), FE)
 plt.title("Free energy")
 
-plt.figure(7)
-data = np.zeros((100,100))
-for i in range(100):
-    for j in range(100):
-        data[i,j] = light_level(np.array([i,j])) + sigma_z[0,0]*np.random.randn()
-plt.imshow(data, vmin=0, origin='lower')#, vmax=10)
-plt.colorbar()
+#plt.figure(7)
+#data = np.zeros((100,100))
+#for i in range(100):
+#    for j in range(100):
+#        data[i,j] = light_level(np.array([i,j])) + sigma_z[0,0]*np.random.randn()
+#plt.imshow(data, vmin=0, origin='lower')#, vmax=10)
+#plt.colorbar()
 #
 #plt.show()
