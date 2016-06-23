@@ -135,7 +135,7 @@ plt.close('all')
 #plt.xlim((0,100))
 #plt.ylim((0,100))
 #
-## update the plot thrpugh objects
+## update the plot through objects
 #ax = fig.add_subplot(111)
 #line1, = ax.plot(pos_centre[0], pos_centre[1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
 #line2, = ax.plot(orientation[0,:], orientation[1,:], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
