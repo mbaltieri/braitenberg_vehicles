@@ -67,7 +67,7 @@ z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpos
 
 # noise on motion of hidden states
 gamma_w = 12 * np.ones((hidden_states, ))    # log-precision
-pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
+pi_w = 0 * np.ones((hidden_states, ))
 sigma_w = 1 / (np.sqrt(pi_w))
 w = (np.dot(np.diag(sigma_w), np.random.randn(obs_states, iterations))).transpose()
 
@@ -90,6 +90,10 @@ def light_level(x_agent):
             - 1 / (2 * (1 - corr ** 2)) * ((x_agent[0] - mu[0]) ** 2 / 
             (sigma_x ** 2) + (x_agent[1] - mu[1]) ** 2 / (sigma_y ** 2) - 
             2 * corr * (x_agent[0] - mu[0]) * (x_agent[1] - mu[1]) / (sigma_x * sigma_y)))
+    
+#    sigma_x = 30.
+#    mu = 80.
+#    return 73 * l_max / (np.sqrt(2 * sigma_x ** 2 * np.pi)) * np.exp(- (x_agent[0] - mu) ** 2 / (2 * sigma_x ** 2))
 
 
 # free energy functions
@@ -204,14 +208,14 @@ for i in range(iterations - 1):
     
     # update plot
 #    if np.mod(i, 1)==0:                                                                    # don't update at each time step, too computationally expensive
-    orientation_endpoint = x_agent[i, :, None] + length_dir * (np.array([[np.cos(theta[i])], [np.sin(theta[i])]]))
-    orientation = np.concatenate((x_agent[i, :, None], orientation_endpoint), axis=1)
-    line1.set_xdata(x_agent[i, 0])
-    line1.set_ydata(x_agent[i, 1])
-    line2.set_xdata(orientation[0,:])
-    line2.set_ydata(orientation[1,:])
-    fig.canvas.draw()
-    plt.pause(0.05)
+#    orientation_endpoint = x_agent[i, :, None] + length_dir * (np.array([[np.cos(theta[i])], [np.sin(theta[i])]]))
+#    orientation = np.concatenate((x_agent[i, :, None], orientation_endpoint), axis=1)
+#    line1.set_xdata(x_agent[i, 0])
+#    line1.set_ydata(x_agent[i, 1])
+#    line2.set_xdata(orientation[0,:])
+#    line2.set_ydata(orientation[1,:])
+#    fig.canvas.draw()
+#    plt.pause(0.05)
 #    input("\nPress Enter to continue.")
 
     eps_z, xi_z = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
@@ -294,10 +298,10 @@ light = np.zeros((points, points))
 
 for i in range(points):
     for j in range(points):
-        light[i, j] = light_level(np.array([x_map[i], y_map[j]])) + sigma_z[0] * np.random.randn()
+        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
 
 light_fig = plt.figure()
-light_map = plt.imshow(light.transpose(), extent=(0., points, 0., points),
+light_map = plt.imshow(light, extent=(0., points, 0., points),
            interpolation='nearest', cmap='jet')
 cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
 
