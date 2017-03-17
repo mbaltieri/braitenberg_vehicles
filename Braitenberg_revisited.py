@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 dt = .02
-T = 4
+T = 20
 iterations = int(T/dt)
 plt.close('all')
 
@@ -36,64 +36,33 @@ max_speed = 100.
 
 l_max = 200.
 
-s = np.zeros((iterations, sensors_n))
-v = np.zeros((sensors_n))
-x_light = np.array([59.,47.])
-theta = np.zeros((iterations, ))                            # orientation of the agent
-x_agent = np.zeros((iterations, 2))                         # 2D world, 2 coordinates por agent position
-v_agent = np.zeros((iterations, ))
-v_motor = np.zeros((iterations, motors_n))
+### Global functions ###
 
-
-### Free Energy definition
-FE = np.zeros((iterations,))
-rho = np.zeros((iterations, obs_states))
-mu_x = np.zeros((iterations, hidden_states))
-mu_v = np.zeros((iterations, hidden_causes))
-a = np.zeros((iterations, motors_n))
-
-dFdmu_x = np.zeros((hidden_states))
-dFda = np.zeros((motors_n))
-drhoda = np.zeros((obs_states, motors_n))
-
-k_mu_x = .0001 * np.ones(hidden_states,)
-k_a = .1 * np.ones(motors_n,)
-
-# noise on sensory input
-gamma_z = 4 * np.ones((obs_states, ))    # log-precisions
-pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
-sigma_z = 1 / (np.sqrt(pi_z))
-z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
-
-# noise on motion of hidden states
-gamma_w = 12 * np.ones((hidden_states, ))    # log-precision
-pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
-sigma_w = 1 / (np.sqrt(pi_w))
-w = (np.dot(np.diag(sigma_w), np.random.randn(obs_states, iterations))).transpose()
-
-# functions #
-def sigmoid(x):
-    # vehicles 3
-#    return 1 / (1 + np.exp(- 2 * x / l_max))
-    return 1 * np.tanh(x / 1)
-
+#def sigmoid(x):
+#    # vehicles 3
+##    return 1 / (1 + np.exp(- 2 * x / l_max))
+#    return 1 * np.tanh(x / l_max)
+#
+#def spinsToVelocity(x, i):
+#    r = .7
+##    f = 10.
+#    return 2 * np.pi * r ** 2 * x / (i + 1 * dt) * 10
+#
 def light_level(x_agent):
-#    distance = np.linalg.norm(x_light - x_agent)
-#    return l_max/(distance**2)
-    sigma_x = 30.
-    sigma_y = 30.
-    Sigma = np.array([[sigma_x ** 2, 0.], [0., sigma_y ** 2]])
-    mu = x_light
-    corr = Sigma[0, 1] / (sigma_x * sigma_y)
-    
-    return 5655 * l_max / (2 * np.pi * sigma_x * sigma_y * np.sqrt(1 - corr ** 2)) * np.exp(
-            - 1 / (2 * (1 - corr ** 2)) * ((x_agent[0] - mu[0]) ** 2 / 
-            (sigma_x ** 2) + (x_agent[1] - mu[1]) ** 2 / (sigma_y ** 2) - 
-            2 * corr * (x_agent[0] - mu[0]) * (x_agent[1] - mu[1]) / (sigma_x * sigma_y)))
-    
 #    sigma_x = 30.
-#    mu = 80.
-#    return 73 * l_max / (np.sqrt(2 * sigma_x ** 2 * np.pi)) * np.exp(- (x_agent[0] - mu) ** 2 / (2 * sigma_x ** 2))
+#    sigma_y = 30.
+#    Sigma = np.array([[sigma_x ** 2, 0.], [0., sigma_y ** 2]])
+#    mu = x_light
+#    corr = Sigma[0, 1] / (sigma_x * sigma_y)
+#    
+#    return 5655 * l_max / (2 * np.pi * sigma_x * sigma_y * np.sqrt(1 - corr ** 2)) * np.exp(
+#            - 1 / (2 * (1 - corr ** 2)) * ((x_agent[0] - mu[0]) ** 2 / 
+#            (sigma_x ** 2) + (x_agent[1] - mu[1]) ** 2 / (sigma_y ** 2) - 
+#            2 * corr * (x_agent[0] - mu[0]) * (x_agent[1] - mu[1]) / (sigma_x * sigma_y)))
+    
+    sigma_x = 30.
+    mu = 80.
+    return 73 * l_max / (np.sqrt(2 * sigma_x ** 2 * np.pi)) * np.exp(- (x_agent[0] - mu) ** 2 / (2 * sigma_x ** 2))
 
 
 # free energy functions
@@ -101,24 +70,19 @@ def g(x, v):
     return x
 
 def f(x_agent, v_agent, v_motor, theta, v, w, a, i):    
-        # vehicle 2
-#    v_motor[0] =  f(a[1])
-#    v_motor[1] =  f(a[0])
-    
     # vehicle 3
-    v_motor[i, 0] = max_speed * (1 - sigmoid(a[0]))
-    v_motor[i, 1] = max_speed * (1 - sigmoid(a[1]))
-    
-#    print(v_motor[i, :])
+    v_motor[i, 0] = 1 * (l_max - a[0])
+    v_motor[i, 1] = 1 * (l_max - a[1])
+
+#    v_motor[i, 0] = spinsToVelocity(a[0], i)
+#    v_motor[i, 1] = spinsToVelocity(a[1], i)
     
     # translation
     v_agent[i] = (v_motor[i, 0] + v_motor[i, 1]) / 2
     x_agent[i + 1, :] = x_agent[i, :] + dt * (v_agent[i] * np.array([np.cos(theta[i]), np.sin(theta[i])]))
-    
-#    print(x_agent[i, :])
-    
+        
     # rotation
-    omega = 30 * np.float((v_motor[i, 1] - v_motor[i, 0]) / (2 * radius))
+    omega = 2 * np.float((v_motor[i, 1] - v_motor[i, 0]) / (2 * radius))
     theta[i + 1] = theta[i] + dt * omega
     theta[i + 1] = np.mod(theta[i + 1], 2 * np.pi)
     
@@ -131,194 +95,281 @@ def f(x_agent, v_agent, v_motor, theta, v, w, a, i):
     
     return sensor
 
-def g_gm(x, v):
-    return g(x, v)
-
-def f_gm(x, v):
-    return v
-
+#def g_gm(x, v):
+#    return g(x, v)
+#
+#def f_gm(x, v):
+#    return v
+#
 def getObservation(x_agent, v_agent, v_motor, theta, v, w, z, a, iteration):
     x = f(x_agent, v_agent, v_motor, theta, v, w, a, iteration)
     return (g(x, v), g(x, v) + z)
-
-def sensoryErrors(y, mu_x, mu_v, mu_gamma_z):
-    eps_z = y - g_gm(mu_x, mu_v)
-    pi_gamma_z = np.exp(mu_gamma_z) * np.ones((obs_states, ))
-    xi_z = pi_gamma_z * eps_z
-    return eps_z, xi_z
-
-
-def dynamicsErrors(mu_x, mu_v, mu_gamma_w):
-    eps_w = mu_x - f_gm(mu_x, mu_v)
-    pi_gamma_w = np.exp(mu_gamma_w) * np.ones((obs_states, ))
-    xi_w = pi_gamma_w * eps_w
-    return eps_w, xi_w
 #
-#def priorErrors(mu_v, eta):
-#    eps_n = mu_v[:, :-1] - eta
-#    xi_n = pi_n * eps_n
-#    return eps_n, xi_n
-
-
-def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w, eta):
-    eps_z, xi_z = sensoryErrors(y, mu_x, mu_v, mu_gamma_z)
-    eps_w, xi_w = dynamicsErrors(mu_x, mu_v, mu_gamma_w)
-#    eps_n, xi_n = priorErrors(mu_v, eta)
-    return .5 * (np.trace(np.dot(eps_z[:, None], np.transpose(xi_z[:, None]))) +
-                 np.trace(np.dot(eps_w[:, None], np.transpose(xi_w[:, None]))) +
-#                 np.trace(np.dot(eps_n, np.transpose(xi_n))) -
-                 np.log(np.prod(np.exp(mu_gamma_z)) *
-                        np.prod(np.exp(mu_gamma_w)))) #*
-#                        np.prod(pi_n)))
-
-### initialisation
-v = np.array([l_max, l_max])
-mu_v[0, :] = v
-#mu_x[0, :] = v
-
-#drhoda = np.array([[0., 1.], [1., 0.]])
-drhoda = - np.array([[1., 0.], [0., 1.]])
-x_agent[0, :] = np.array([29., 5.])
-#x_agent[0, :] = 100 * np.random.rand(1, 2)
-
-#theta[0] = np.pi * np.random.rand()
-theta[0] = np.pi / 2 #2 / 3 * np.pi
-
-
-## online plot routine
-fig = plt.figure(0)
-plt.ion()
-    
-plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
-
-orientation_endpoint = x_agent[0, :, None] + length_dir * (np.array([[np.cos(theta[0])], [np.sin(theta[0])]]))
-orientation = np.concatenate((x_agent[0, :, None], orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
-
-plt.xlim((0,100))
-plt.ylim((0,100))
-
-# update the plot through objects
-ax = fig.add_subplot(111)
-line1, = ax.plot(x_agent[0, 0], x_agent[0, 1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
-line2, = ax.plot(orientation[0, :], orientation[1, :], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
-
-
-for i in range(iterations - 1):
-    s[i, :], rho[i, :] = getObservation(x_agent, v_agent, v_motor, theta, v, w[i, :], z[i, :], a[i, :], i)
-    
-    # update plot
-#    if np.mod(i, 1)==0:                                                                    # don't update at each time step, too computationally expensive
-    orientation_endpoint = x_agent[i, :, None] + length_dir * (np.array([[np.cos(theta[i])], [np.sin(theta[i])]]))
-    orientation = np.concatenate((x_agent[i, :, None], orientation_endpoint), axis=1)
-    line1.set_xdata(x_agent[i, 0])
-    line1.set_ydata(x_agent[i, 1])
-    line2.set_xdata(orientation[0,:])
-    line2.set_ydata(orientation[1,:])
-    fig.canvas.draw()
-    plt.pause(0.05)
-#    input("\nPress Enter to continue.")
-
-    eps_z, xi_z = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
-    
-    FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w, mu_v[i, :])
-    
-    # find derivatives
-    dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) - pi_z * z[i, :] / np.sqrt(dt)
-    dFda = np.dot((pi_z * (s[i, :] - mu_x[i, :]) + pi_z * z[i, :] / np.sqrt(dt)), drhoda)
-#    dFda = (pi_z * (s[i, :] - mu_x[i, :]) + pi_z * z[i, :] / np.sqrt(dt)) * (sigmoid(a[i, ::-1]) * (1 - sigmoid(a[i, ::-1])))       # cyclic behaviour?
-#    dFda = (pi_z * (s[i, :] - mu_x[i, :]) + pi_z * z[i, :] / np.sqrt(dt)) * - (1 - sigmoid(a[i, :] / l_max) ** 2) / l_max
-    
-    # update equations
-    mu_x[i + 1, :] = mu_x[i, :] + dt * (- k_mu_x * dFdmu_x)
-    mu_v[i + 1, :] = mu_v[i, :]
-    a[i + 1, :] = a[i, :] + dt * (- k_a * dFda)
-    a_min = - 20
-    a_max = 0
-    a_norm_min = - 1
-    a_norm_max = 0
-    a[i + 1, :] = (a_norm_max - a_norm_min) * (a[i + 1, :] - a_min) / (a_max - a_min) + a_norm_min
-    
-
-#s2 = np.zeros((iterations, sensors_n))
-#theta2 = np.zeros((iterations, ))                            # orientation of the agent
-#x_agent2 = np.zeros((iterations, 2))                         # 2D world, 2 coordinates por agent position
-#v_agent2 = np.zeros((iterations, ))
-#v_motor2 = np.zeros((iterations, motors_n))
-#rho2 = np.zeros((iterations, obs_states))
+#def sensoryErrors(y, mu_x, mu_v, mu_gamma_z):
+#    eps_z = y - g_gm(mu_x, mu_v)
+#    pi_gamma_z = np.exp(mu_gamma_z) * np.ones((obs_states, ))
+#    xi_z = pi_gamma_z * eps_z
+#    return eps_z, xi_z
 #
-#### initialisation
 #
-#x_agent2[0, :] = np.array([29., 5.])
-##x_agent2[0, :] = 100 * np.random.rand(1, 2)
+#def dynamicsErrors(mu_x, mu_v, mu_gamma_w):
+#    eps_w = mu_x - f_gm(mu_x, mu_v)
+#    pi_gamma_w = np.exp(mu_gamma_w) * np.ones((obs_states, ))
+#    xi_w = pi_gamma_w * eps_w
+#    return eps_w, xi_w
+##
+##def priorErrors(mu_v, eta):
+##    eps_n = mu_v[:, :-1] - eta
+##    xi_n = pi_n * eps_n
+##    return eps_n, xi_n
 #
-##theta[0] = np.pi * np.random.rand()
-#theta2[0] = np.pi / 2 #2 / 3 * np.pi
 #
-#s2[0, :], rho2[0, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, v, w[0, :], z[0, :], rho2[0, :], 0)
-#for i in range(1, iterations - 1):
-#    s2[i, :], rho2[i, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, v, w[i, :], z[i, :], rho2[i - 1, :], i)
+#def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w, eta):
+#    eps_z, xi_z = sensoryErrors(y, mu_x, mu_v, mu_gamma_z)
+#    eps_w, xi_w = dynamicsErrors(mu_x, mu_v, mu_gamma_w)
+##    eps_n, xi_n = priorErrors(mu_v, eta)
+#    return .5 * (np.trace(np.dot(eps_z[:, None], np.transpose(xi_z[:, None]))) +
+#                 np.trace(np.dot(eps_w[:, None], np.transpose(xi_w[:, None]))) +
+##                 np.trace(np.dot(eps_n, np.transpose(xi_n))) -
+#                 np.log(np.prod(np.exp(mu_gamma_z)) *
+#                        np.prod(np.exp(mu_gamma_w)))) #*
+##                        np.prod(pi_n)))
+
+def BraitenbergFreeEnergy(noise_level, desired_confidence):
+    s = np.zeros((iterations, sensors_n))
+    v = np.zeros((sensors_n))
+    x_light = np.array([59.,47.])
+    theta = np.zeros((iterations, ))                            # orientation of the agent
+    x_agent = np.zeros((iterations, 2))                         # 2D world, 2 coordinates por agent position
+    v_agent = np.zeros((iterations, ))
+    v_motor = np.zeros((iterations, motors_n))
     
-
-plt.figure(1)
-plt.plot(x_agent[:, 0], x_agent[:, 1])
-plt.xlim((0,100))
-plt.ylim((0,100))
-plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
-plt.plot(x_agent[0, 0], x_agent[0, 1], color='red', marker='o', markersize=8)
-
-plt.figure()
-plt.subplot(1, 2, 1)
-plt.plot(x_agent[:-1, 0], 'b', np.ones(iterations - 1) * x_light[0], 'r')
-plt.subplot(1, 2, 2)
-plt.plot(x_agent[:-1, 1], 'b', np.ones(iterations - 1) * x_light[1], 'r')
-plt.title('Position')
     
-plt.figure()
-plt.subplot(1, 2, 1)
-plt.plot(rho[:-1, 0], 'b', label='Noisy signal')
-plt.plot(s[:-1, 0], 'g', label='Signal')
-plt.plot(mu_x[:-1, 0], 'r', label='Brain state')
-plt.legend()
-plt.subplot(1, 2, 2)
-plt.plot(rho[:-1, 1], 'b', label='Noisy signal')
-plt.plot(s[:-1, 1], 'g', label='Signal')
-plt.plot(mu_x[:-1, 1], 'r', label='Brain state')
-plt.legend()
-
-plt.figure()
-plt.plot(a[:-1, 0], 'b', label='Motor1')
-plt.plot(a[:-1, 1], 'r', label='Motor2')
-plt.title('Actions')
-plt.legend()
-
-plt.figure()
-plt.plot(v_motor[:-1, 0], 'b', label='Motor1')
-plt.plot(v_motor[:-1, 1], 'r', label='Motor2')
-plt.title('Velocity')
-plt.legend()
-
-plt.figure()
-plt.plot(theta)
-plt.title('Orientation')
-
-plt.figure()
-plt.semilogy(FE)
-plt.title('Free Energy')
+    ### Free Energy definition
+    FE = np.zeros((iterations,))
+    rho = np.zeros((iterations, obs_states))
+    mu_x = np.zeros((iterations, hidden_states))
+    mu_v = np.zeros((iterations, hidden_causes))
+    a = np.zeros((iterations, motors_n))
+    
+    dFdmu_x = np.zeros((hidden_states))
+    dFda = np.zeros((iterations, motors_n))
+    drhoda = np.zeros((obs_states, motors_n))
+    
+    k_mu_x = .0001 * np.ones(hidden_states,)
+    k_a = .01 * np.ones(motors_n,)
+    
+    # noise on sensory input
+    gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
+    pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+    sigma_z = 1 / (np.sqrt(pi_z))
+    z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+    
+    # noise on motion of hidden states
+    gamma_w = desired_confidence * np.ones((hidden_states, ))    # log-precision
+    pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
+    sigma_w = 1 / (np.sqrt(pi_w))
+    w = (np.dot(np.diag(sigma_w), np.random.randn(obs_states, iterations))).transpose()
 
 
-points = 100
-x_map = range(points)
-y_map = range(points)
-light = np.zeros((points, points))
 
-for i in range(points):
-    for j in range(points):
-        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
+    ### initialisation
+    v = np.array([l_max, l_max])
+    #mu_v[0, :] = v
+    #mu_x[0, :] = v
+    #
+    ##drhoda = np.array([[0., 1.], [1., 0.]])
+    drhoda = np.array([[1., 0.], [0., 1.]])
+    x_agent[0, :] = np.array([10., 10. * np.random.rand()])
+    #
+    ##theta[0] = np.pi * np.random.rand()
+    theta[0] = np.pi / 2
+    
+    # online plot routine
+    fig = plt.figure(0)
+    plt.ion()
+        
+    plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+    
+    orientation_endpoint = x_agent[0, :, None] + length_dir * (np.array([[np.cos(theta[0])], [np.sin(theta[0])]]))
+    orientation = np.concatenate((x_agent[0, :, None], orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
+    
+    plt.xlim((0,100))
+    plt.ylim((0,200))
+    
+    # update the plot through objects
+    ax = fig.add_subplot(111)
+    line1, = ax.plot(x_agent[0, 0], x_agent[0, 1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
+    line2, = ax.plot(orientation[0, :], orientation[1, :], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
+    
+    
+    for i in range(iterations - 1):
+#        if x_agent[i - 1, 0] > 80.:
+#            break
+#        else:
+        s[i, :], rho[i, :] = getObservation(x_agent, v_agent, v_motor, theta, v, w[i, :], z[i, :], dFda[i - 1, :] / pi_z, i)
+        
+#        # update plot
+#        orientation_endpoint = x_agent[i, :, None] + length_dir * (np.array([[np.cos(theta[i])], [np.sin(theta[i])]]))
+#        orientation = np.concatenate((x_agent[i, :, None], orientation_endpoint), axis=1)
+#        line1.set_xdata(x_agent[i, 0])
+#        line1.set_ydata(x_agent[i, 1])
+#        line2.set_xdata(orientation[0,:])
+#        line2.set_ydata(orientation[1,:])
+#        fig.canvas.draw()
+#        plt.pause(0.05)
+        
+#        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w, mu_v[i, :])
+        
+        # find derivatives
+        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) - pi_z * z[i, :] / np.sqrt(dt)
+        dFda[i, :] = np.dot((pi_z * (s[i, :] - mu_x[i, :]) + pi_z * z[i, :] / np.sqrt(dt)), drhoda)
+    #    dFda = (pi_z * (s[i, :] - mu_x[i, :]) + pi_z * z[i, :] / np.sqrt(dt)) * (sigmoid(a[i, ::-1]) * (1 - sigmoid(a[i, ::-1])))       # cyclic behaviour?
+    #    dFda = (pi_z * (s[i, :] - mu_x[i, :]) + pi_z * z[i, :] / np.sqrt(dt)) * - (1 - sigmoid(a[i, :] / l_max) ** 2) / l_max
+        
+        # update equations
+        mu_x[i + 1, :] = mu_x[i, :] + dt * (- k_mu_x * dFdmu_x)
+        mu_v[i + 1, :] = mu_v[i, :]
+        a[i + 1, :] = a[i, :] + dt * (- k_a * dFda[i, :])
 
-light_fig = plt.figure()
-light_map = plt.imshow(light, extent=(0., points, 0., points),
-           interpolation='nearest', cmap='jet')
-cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
+#    plt.figure(1)
+#    plt.plot(x_agent[:, 0], x_agent[:, 1])
+#    plt.xlim((0,100))
+#    plt.ylim((0,100))
+#    plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#    plt.plot(x_agent[0, 0], x_agent[0, 1], color='red', marker='o', markersize=8)
+#    
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(x_agent[:-1, 0], 'b', np.ones(iterations - 1) * x_light[0], 'r')
+#    plt.subplot(1, 2, 2)
+#    plt.plot(x_agent[:-1, 1], 'b', np.ones(iterations - 1) * x_light[1], 'r')
+#    plt.title('Position')
+#        
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(rho[:-1, 0], 'b', label='Noisy signal')
+#    plt.plot(s[:-1, 0], 'g', label='Signal')
+#    plt.plot(mu_x[:-1, 0], 'r', label='Brain state')
+#    plt.legend()
+#    plt.subplot(1, 2, 2)
+#    plt.plot(rho[:-1, 1], 'b', label='Noisy signal')
+#    plt.plot(s[:-1, 1], 'g', label='Signal')
+#    plt.plot(mu_x[:-1, 1], 'r', label='Brain state')
+#    plt.legend()
+#    
+#    plt.figure()
+#    plt.plot(a[:-1, 0], 'b', label='Motor1')
+#    plt.plot(a[:-1, 1], 'r', label='Motor2')
+#    plt.title('Actions')
+#    plt.legend()
+#    
+#    dFda /= pi_z
+#    plt.figure()
+#    plt.plot(dFda[:-1, 0], 'b', label='Motor1')
+#    plt.plot(dFda[:-1, 1], 'r', label='Motor2')
+#    plt.title('Actions\'s rate of change')
+#    plt.legend()
+#    
+#    plt.figure()
+#    plt.plot(v_motor[:-1, 0], 'b', label='Motor1')
+#    plt.plot(v_motor[:-1, 1], 'r', label='Motor2')
+#    plt.title('Velocity')
+#    plt.legend()
+#    
+#    plt.figure()
+#    plt.plot(theta)
+#    plt.title('Orientation')
+#    
+#    plt.figure()
+#    plt.semilogy(FE)
+#    plt.title('Free Energy')
+#    
+#    
+#    points = 100
+#    x_map = range(points)
+#    y_map = range(points)
+#    light = np.zeros((points, points))
+#    
+#    for i in range(points):
+#        for j in range(points):
+#            light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
+#    
+#    light_fig = plt.figure()
+#    light_map = plt.imshow(light, extent=(0., points, 0., points),
+#               interpolation='nearest', cmap='jet')
+#    cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
+    
+    
+    return x_agent
+
+### standard Braitenberg vehicle ###
+
+def Braitenberg(noise_level, desired_confidence):
+    
+    # noise on sensory input
+    gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
+    pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+    sigma_z = 1 / (np.sqrt(pi_z))
+    z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+    
+    # noise on motion of hidden states
+    gamma_w = desired_confidence * np.ones((hidden_states, ))    # log-precision
+    pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
+    sigma_w = 1 / (np.sqrt(pi_w))
+    w = (np.dot(np.diag(sigma_w), np.random.randn(obs_states, iterations))).transpose()
+    
+    s2 = np.zeros((iterations, sensors_n))
+    theta2 = np.zeros((iterations, ))                            # orientation of the agent
+    x_agent2 = np.zeros((iterations, 2))                         # 2D world, 2 coordinates por agent position
+    v_agent2 = np.zeros((iterations, ))
+    v_motor2 = np.zeros((iterations, motors_n))
+    rho2 = np.zeros((iterations, obs_states))
+    
+    ### initialisation
+    
+    x_agent2[0, :] = np.array([10., 10. * np.random.rand()])
+    #x_agent2[0, :] = 100 * np.random.rand(1, 2)
+    
+    #theta[0] = np.pi * np.random.rand()
+    theta2[0] = np.pi / 2 #2 / 3 * np.pi
+    
+    ## online plot routine
+    fig = plt.figure(10)
+    plt.ion()
+        
+    #plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+    
+    orientation_endpoint = x_agent2[0, :, None] + length_dir * (np.array([[np.cos(theta2[0])], [np.sin(theta2[0])]]))
+    orientation = np.concatenate((x_agent2[0, :, None], orientation_endpoint), axis=1)                            # vector containing centre of mass and endpoint for the line representing the orientation
+    
+    plt.xlim((0,100))
+    plt.ylim((0,100))
+    
+    # update the plot through objects
+    ax = fig.add_subplot(111)
+    line1, = ax.plot(x_agent2[0, 0], x_agent2[0, 1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
+    line2, = ax.plot(orientation[0, :], orientation[1, :], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
+    
+    s2[0, :], rho2[0, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[0, :], z[0, :], rho2[0, :], 0)
+    for i in range(1, iterations - 1):
+        if x_agent2[i - 1, 0] > 80.:
+            break
+        else:
+            s2[i, :], rho2[i, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[i, :], z[i, :], rho2[i - 1, :], i)
+        
+        orientation_endpoint = x_agent2[i, :, None] + length_dir * (np.array([[np.cos(theta2[i])], [np.sin(theta2[i])]]))
+        orientation = np.concatenate((x_agent2[i, :, None], orientation_endpoint), axis=1)
+        line1.set_xdata(x_agent2[i, 0])
+        line1.set_ydata(x_agent2[i, 1])
+        line2.set_xdata(orientation[0,:])
+        line2.set_ydata(orientation[1,:])
+        fig.canvas.draw()
+        plt.pause(0.05)
+    
+    return x_agent2
+
+
 
 
 
@@ -355,6 +406,111 @@ cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
 #plt.figure()
 #plt.plot(theta2)
 #plt.title('Orientation')
+#
+#points = 100
+#x_map = range(points)
+#y_map = range(points)
+#light = np.zeros((points, points))
+#
+#for i in range(points):
+#    for j in range(points):
+#        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
+#
+#light_fig = plt.figure()
+#light_map = plt.imshow(light, extent=(0., points, 0., points),
+#           interpolation='nearest', cmap='jet')
+#cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
+
+
+
+### Run Braitenberg
+#simulations = 1
+#noise_levels = 1
+#noise_level_min = 11.9
+#noise_level_max = 12.
+#noise_level_range = np.arange(noise_level_min, noise_level_max, (noise_level_max - noise_level_min) / noise_levels)
+#desired_confidence = 12.
+#
+#first_cross = np.zeros((noise_levels, simulations))
+#first_cross_avg = np.zeros((noise_levels, ))
+#
+#agent_position = np.zeros((noise_levels, simulations, iterations, 2))
+#
+#for i in range(noise_levels):
+#    for j in range(simulations):
+#        print(i, j)
+#        agent_position[i, j, :, :] = Braitenberg(noise_level_range[i], desired_confidence)
+#        first_cross[i, j] = np.argmax(agent_position[i, j, :, 0] > 80.) * T / iterations
+#    first_cross_avg = np.average(first_cross, 1)
+#    
+#plt.figure()
+#plt.plot(noise_level_range, first_cross_avg)
+#plt.xlabel('Noise level (log-precision)')
+#plt.title('Average time over ' + str(simulations) + ' simulations')
+
+
+### Run (Free Energy) Braitenberg
+simulations = 1
+noise_levels = 1
+noise_level_min = 11.9
+noise_level_max = 12.
+noise_level_range = np.arange(noise_level_min, noise_level_max, (noise_level_max - noise_level_min) / noise_levels)
+desired_confidence = 12.
+
+first_cross = np.zeros((noise_levels, simulations))
+first_cross_avg = np.zeros((noise_levels, ))
+
+agent_position = np.zeros((noise_levels, simulations, iterations, 2))
+
+for i in range(noise_levels):
+    for j in range(simulations):
+        print(i, j)
+        agent_position[i, j, :, :] = BraitenbergFreeEnergy(noise_level_range[i], desired_confidence)
+#        a = BraitenbergFreeEnergy(noise_level_range[i], desired_confidence)
+        first_cross[i, j] = np.argmax(agent_position[i, j, :, 0] > 80.) * T / iterations
+    first_cross_avg = np.average(first_cross, 1)
+    
+plt.figure()
+plt.plot(noise_level_range, first_cross_avg)
+plt.xlabel('Noise level (log-precision)')
+plt.title('Average time over ' + str(simulations) + ' simulations')
+
+
+### Run (Free Energy) Braitenberg with different confidences
+
+simulations = 100
+confidence_levels = 10
+confidence_level_min = -10.
+confidence_level_max = 12.
+confidence_level_range = np.arange(confidence_level_min, confidence_level_max, (confidence_level_max - confidence_level_min) / confidence_levels)
+noise_level = 4.
+
+first_cross = np.zeros((confidence_levels, simulations))
+first_cross_avg = np.zeros((confidence_levels, ))
+
+agent_position = np.zeros((confidence_levels, simulations, iterations, 2))
+
+for i in range(confidence_levels):
+    for j in range(simulations):
+        print(i, j)
+        agent_position[i, j, :, :] = BraitenbergFreeEnergy(noise_level, confidence_level_range[i])
+        first_cross[i, j] = np.argmax(agent_position[i, j, :, 0] > 80.) * T / iterations
+    first_cross_avg = np.average(first_cross, 1)
+    
+plt.figure()
+plt.plot(confidence_level_range, first_cross_avg)
+plt.xlabel('Confidence level on prior (log-precision)')
+plt.title('Average time over ' + str(simulations) + ' simulations')
+
+
+
+
+
+
+
+
+
+
 
 
 
