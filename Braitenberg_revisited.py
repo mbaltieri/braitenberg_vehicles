@@ -16,11 +16,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
+import scipy.fftpack
 
-dt = .002
-T = 2
+dt = .0005
+T = 6
 iterations = int(T/dt)
 plt.close('all')
+np.random.seed(42)
 
 sensors_n = 2
 motors_n = 2
@@ -36,6 +38,7 @@ length_dir = 3                                              # used to plot?
 max_speed = 100.
 
 l_max = 200.
+turning_speed = 30.
 
 ### Global functions ###
 
@@ -62,7 +65,7 @@ def light_level(x_agent):
             (sigma_x ** 2) + (x_agent[1] - mu[1]) ** 2 / (sigma_y ** 2) - 
             2 * corr * (x_agent[0] - mu[0]) * (x_agent[1] - mu[1]) / (sigma_x * sigma_y)))
     
-#    sigma_x = 30.
+#    sigma_x = 50.
 #    mu = 80.
 #    return 73 * l_max / (np.sqrt(2 * sigma_x ** 2 * np.pi)) * np.exp(- (x_agent[0] - mu) ** 2 / (2 * sigma_x ** 2))
 
@@ -72,19 +75,20 @@ def g(x, v):
     return x
 
 def f(x_agent, v_agent, v_motor, theta, v, w, a, i):    
-    # vehicle 3
-    v_motor[i, 0] = l_max - a[0]
-    v_motor[i, 1] = l_max - a[1]
-
-#    v_motor[i, 0] = spinsToVelocity(a[0], i)
-#    v_motor[i, 1] = spinsToVelocity(a[1], i)
+#    # vehicle 3a - lover
+#    v_motor[i, 0] = l_max - a[0]
+#    v_motor[i, 1] = l_max - a[1]
+    
+    # vehicle 2b - aggressor
+    v_motor[i, 0] = a[1]
+    v_motor[i, 1] = a[0]
     
     # translation
     v_agent[i] = (v_motor[i, 0] + v_motor[i, 1]) / 2
     x_agent[i + 1, :] = x_agent[i, :] + dt * (v_agent[i] * np.array([np.cos(theta[i]), np.sin(theta[i])]))
         
     # rotation
-    omega = 20 * np.float((v_motor[i, 1] - v_motor[i, 0]) / (2 * radius))
+    omega = turning_speed * np.float((v_motor[i, 1] - v_motor[i, 0]) / (2 * radius))
     theta[i + 1] = theta[i] + dt * omega
     theta[i + 1] = np.mod(theta[i + 1], 2 * np.pi)
     
@@ -98,20 +102,20 @@ def f(x_agent, v_agent, v_motor, theta, v, w, a, i):
     return sensor
 
 def fFE(x_agent, v_agent, v_motor, theta, v, w, a, i):
-    # vehicle 3a - lover
-    v_motor[i, 0] = l_max - a[0]
-    v_motor[i, 1] = l_max - a[1]
+#    # vehicle 3a - lover
+#    v_motor[i, 0] = l_max - a[0]
+#    v_motor[i, 1] = l_max - a[1]
     
-#    # vehicle 2b - aggressor
-#    v_motor[i, 0] = a[1]
-#    v_motor[i, 1] = a[0]
+    # vehicle 2b - aggressor
+    v_motor[i, 0] = a[1]
+    v_motor[i, 1] = a[0]
     
     # translation
     v_agent[i] = (v_motor[i, 0] + v_motor[i, 1]) / 2
     x_agent[i + 1, :] = x_agent[i, :] + dt * (v_agent[i] * np.array([np.cos(theta[i]), np.sin(theta[i])]))
         
     # rotation
-    omega = 20 * np.float((v_motor[i, 1] - v_motor[i, 0]) / (2 * radius))
+    omega = turning_speed * np.float((v_motor[i, 1] - v_motor[i, 0]) / (2 * radius))
     theta[i + 1] = theta[i] + dt * omega
     theta[i + 1] = np.mod(theta[i + 1], 2 * np.pi)
     
@@ -168,7 +172,7 @@ def getObservationFE(x_agent, v_agent, v_motor, theta, v, w, z, a, iteration):
 #                        np.prod(np.exp(mu_gamma_w)))) #*
 ##                        np.prod(pi_n)))
 
-def BraitenbergFreeEnergy2(noise_level, desired_confidence):
+def BraitenbergFreeEnergy2(noise_level, sensor_confidence, prior_confidence, motor_confidence, z1):
     s = np.zeros((iterations, sensors_n))
     v = np.zeros((sensors_n))
     x_light = np.array([59.,47.])
@@ -191,28 +195,32 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
     dFda = np.zeros((iterations, motors_n))
     drhoda = np.zeros((obs_states, motors_n))
     
-    k_mu_x = .1 * np.ones(hidden_states,)
-    k_mu_m = 10 * np.ones(hidden_states,)
-    k_a = 1000 * np.ones(motors_n,)
+    k_mu_x = 10 * np.ones(hidden_states,)
+    k_mu_m = 100000 * np.ones(hidden_states,)
+    k_a = 5000000 * np.ones(motors_n,)
     
     # noise on sensory input
-    gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
+    gamma_z = sensor_confidence * np.ones((obs_states, ))    # log-precisions
+    real_gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions (real world)
     pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
-    sigma_z = 1 / (np.sqrt(pi_z))
+    real_pi_z = np.exp(real_gamma_z) * np.ones((obs_states, ))
+    sigma_z = 1 / (np.sqrt(real_pi_z))
     z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+    z = z1
     
-    gamma_z_m = -3 * np.ones((obs_states, ))    # log-precisions
+    gamma_z_m = motor_confidence * np.ones((obs_states, ))    # log-precisions
     pi_z_m = np.exp(gamma_z_m) * np.ones((obs_states, ))
-    sigma_z_m = 1 / (np.sqrt(pi_z_m))
+    real_pi_z_m = np.exp(32) * np.ones((obs_states, ))
+    sigma_z_m = 1 / (np.sqrt(real_pi_z_m))
     z_m = (np.dot(np.diag(sigma_z_m), np.random.randn(obs_states, iterations))).transpose()
     
     # noise on motion of hidden states
-    gamma_w = desired_confidence * np.ones((hidden_states, ))    # log-precision
+    gamma_w = - 12 * np.ones((hidden_states, ))    # log-precision
     pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
     sigma_w = 1 / (np.sqrt(pi_w))
     w = (np.dot(np.diag(sigma_w), np.random.randn(obs_states, iterations))).transpose()
     
-    gamma_w_m = 4 * np.ones((hidden_states, ))    # log-precision
+    gamma_w_m = prior_confidence * np.ones((hidden_states, ))    # log-precision
     pi_w_m = np.exp(gamma_w_m) * np.ones((hidden_states, ))
     sigma_w_m = 1 / (np.sqrt(pi_w_m))
     w_m = (np.dot(np.diag(sigma_w_m), np.random.randn(obs_states, iterations))).transpose()
@@ -222,11 +230,12 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
     ### initialisation
     v = np.array([l_max, l_max])
     mu_v[0, :] = v
+#    a[0, :] = np.array([30, 20])
 #    mu_x[0, :] = v
     #
     ##drhoda = np.array([[0., 1.], [1., 0.]])
-    drhoda = - np.array([[1., 0.], [0., 1.]])             # vehicle 3a - lover
-#    drhoda = np.array([[0., 1.], [1., 0.]])             # vehicle 2b - aggressor
+#    drhoda = - np.array([[1., 0.], [0., 1.]])             # vehicle 3a - lover
+    drhoda = np.array([[0., 1.], [1., 0.]])             # vehicle 2b - aggressor
     x_agent[0, :] = np.array([10., 10.])
     #
     ##theta[0] = np.pi * np.random.rand()
@@ -251,10 +260,26 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
     
     
     for i in range(iterations - 1):
-#        if x_agent[i - 1, 0] > 80.:
-#            break
+#        if i > iterations / 4:
+#            gamma_z = sensor_confidence
+#            pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+#            
+#            gamma_w_m = prior_confidence
+#            pi_w_m = np.exp(gamma_w_m) * np.ones((hidden_states, ))
+#            
+#            gamma_z_m = motor_confidence
+#            pi_z_m = np.exp(gamma_z_m) * np.ones((obs_states, ))
 #        else:
-        s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, w[i, :], z[i, :], a[i, :], i)
+#            gamma_z = noise_level
+#            pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+#            
+#            gamma_w_m = - 6
+#            pi_w_m = np.exp(gamma_w_m) * np.ones((hidden_states, ))
+#            
+#            gamma_z_m =  - 10
+#            pi_z_m = np.exp(gamma_z_m) * np.ones((obs_states, ))
+            
+        s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], a[i, :], i)
         
         # update plot
 #        orientation_endpoint = x_agent[i, :, None] + length_dir * (np.array([[np.cos(theta[i])], [np.sin(theta[i])]]))
@@ -268,25 +293,48 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
         
 #        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w, mu_v[i, :])
         
-        aaa = v_motor[i, :]
         # find derivatives
         dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_x[i, :] - mu_m[i, :]) - pi_z * z[i, :] / np.sqrt(dt)
-#        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt)                 # vehicle 2b - aggressor
-        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :]) - pi_z_m * z_m[i, :] / np.sqrt(dt)             # vehicle 3a - lover
-        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :])), drhoda)# + pi_z_m * z_m[i, :] / np.sqrt(dt)), drhoda)
+        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt)                 # vehicle 2b - aggressor
+#        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :])# - pi_z_m * z_m[i, :] / np.sqrt(dt)             # vehicle 3a - lover
+        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt)), drhoda)
         
         # update equations
         mu_x[i + 1, :] = mu_x[i, :] + dt * (- k_mu_x * dFdmu_x)
         mu_m[i + 1, :] = mu_m[i, :] + dt * (- k_mu_m * dFdmu_m)
         mu_v[i + 1, :] = mu_v[i, :]
         a[i + 1, :] = a[i, :] + dt * (- k_a * dFda[i, :])
+#        a[i + 1, :] = l_max - mu_m[i, :]                                        # vehicle 3a - lover
+        a[i + 1, :] = mu_m[i, ::-1]                                        # vehicle 2b - aggressor
 
-    plt.figure()
-    plt.plot(x_agent[:, 0], x_agent[:, 1])
-#    plt.xlim((0,100))
-#    plt.ylim((0,100))
-    plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
-    plt.plot(x_agent[0, 0], x_agent[0, 1], color='red', marker='o', markersize=8)
+#    plt.figure()
+#    plt.plot(mu_x[:, 0])
+#    f = scipy.fftpack.fft(mu_x[iterations//2:, 0])
+#    plt.figure()
+#    plt.semilogy(np.arange(5 * dt, T / 2, dt),  2.0 / iterations * np.abs(f[:iterations//2])[5:])
+
+#    aa = acf(x_agent[:, 0])
+#    bb = acf(x_agent[:, 1])
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(aa)
+#    plt.subplot(1, 2, 2)
+#    plt.plot(bb)
+#    
+#    print(aa[1])
+#    print(bb[1])
+
+    
+#    aa = print(acf(x_agent[:, 0]))
+#    print(acf(x_agent[:, 1]))
+    
+#    plt.figure()
+#    plt.plot(x_agent[:, 0], x_agent[:, 1])
+#    plt.xlim((0,80))
+#    plt.ylim((0,80))
+#    plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#    plt.plot(x_agent[0, 0], x_agent[0, 1], color='red', marker='o', markersize=8)
+#    plt.title('Trajectory (Active Inference)')
 #    
 #    plt.figure()
 #    plt.subplot(1, 2, 1)
@@ -294,61 +342,61 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
 #    plt.subplot(1, 2, 2)
 #    plt.plot(x_agent[:-1, 1], 'b', np.ones(iterations - 1) * x_light[1], 'r')
 #    plt.title('Position')
-#        
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.plot(rho[:-1, 0], 'b', label='Noisy signal')
-    plt.plot(s[:-1, 0], 'g', label='Signal')
-    plt.plot(mu_x[:-1, 0], 'r', label='Brain state')
-    plt.plot(mu_m[:-1, 0], 'k', label='Brain state motor')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(rho[:-1, 1], 'b', label='Noisy signal')
-    plt.plot(s[:-1, 1], 'g', label='Signal')
-    plt.plot(mu_x[:-1, 1], 'r', label='Brain state')
-    plt.plot(mu_m[:-1, 1], 'k', label='Brain state motor')
-    plt.legend()
-    plt.title('Light')
+        
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(rho[:-1, 0], 'b', label='Noisy signal')
+#    plt.plot(s[:-1, 0], 'g', label='Signal')
+#    plt.plot(mu_x[:-1, 0], 'r', label='Brain state')
+##    plt.plot(mu_m[:-1, 1], 'k', label='Brain state motor')
+#    plt.legend()
+#    plt.subplot(1, 2, 2)
+#    plt.plot(rho[:-1, 1], 'b', label='Noisy signal')
+#    plt.plot(s[:-1, 1], 'g', label='Signal')
+#    plt.plot(mu_x[:-1, 1], 'r', label='Brain state')
+##    plt.plot(mu_m[:-1, 0], 'k', label='Brain state motor')
+#    plt.legend()
+#    plt.title('Light')
+#    
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(mu_m[:-1, 1], 'b', label='Brain state motor')
+#    plt.plot(mu_x[:-1, 0], 'r', label='Brain state sensor')
+#    plt.legend()
+#    plt.subplot(1, 2, 2)
+#    plt.plot(mu_m[:-1, 0], 'b', label='Brain state motor')
+#    plt.plot(mu_x[:-1, 1], 'r', label='Brain state sensor')
+#    plt.legend()
+#    plt.title('Motors')
+#    
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(v_motor[:-1, 0], 'b', label='Motor1')
+#    plt.plot(mu_m[:-1, 0], 'r', label='Brain state motor')
+#    plt.legend()
+#    plt.subplot(1, 2, 2)
+#    plt.plot(v_motor[:-1, 1], 'b', label='Motor2')
+#    plt.plot(mu_m[:-1, 1], 'r', label='Brain state motor')
+#    plt.legend()
+#    plt.title('Motors')
     
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.plot(mu_m[:-1, 0], 'b', label='Brain state motor')
-    plt.plot(mu_x[:-1, 0], 'r', label='Brain state sensor')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(mu_m[:-1, 1], 'b', label='Brain state motor')
-    plt.plot(mu_x[:-1, 1], 'r', label='Brain state sensor')
-    plt.legend()
-    plt.title('Motors')
-    
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.plot(v_motor[:-1, 0], 'b', label='Motor1')
-    plt.plot(mu_m[:-1, 0], 'r', label='Brain state motor')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(v_motor[:-1, 1], 'b', label='Motor2')
-    plt.plot(mu_m[:-1, 1], 'r', label='Brain state motor')
-    plt.legend()
-    plt.title('Motors')
-    
-    plt.figure()
-    plt.plot(a[:-1, 0], 'b', label='Motor1')
-    plt.plot(a[:-1, 1], 'r', label='Motor2')
-    plt.title('Actions')
-    plt.legend()
-
-    plt.figure()
-    plt.plot(dFda[:-1, 0], 'b', label='Motor1')
-    plt.plot(dFda[:-1, 1], 'r', label='Motor2')
-    plt.title('Actions\'s rate of change')
-    plt.legend()
-    
-    plt.figure()
-    plt.plot(v_motor[:-1, 0], 'b', label='Motor1')
-    plt.plot(v_motor[:-1, 1], 'r', label='Motor2')
-    plt.title('Velocity')
-    plt.legend()
+#    plt.figure()
+#    plt.plot(a[:-1, 0], 'b', label='Motor1')
+#    plt.plot(a[:-1, 1], 'r', label='Motor2')
+#    plt.title('Actions')
+#    plt.legend()
+#
+#    plt.figure()
+#    plt.plot(dFda[:-1, 0], 'b', label='Motor1')
+#    plt.plot(dFda[:-1, 1], 'r', label='Motor2')
+#    plt.title('Actions\'s rate of change')
+#    plt.legend()
+#    
+#    plt.figure()
+#    plt.plot(v_motor[:-1, 0], 'b', label='Motor1')
+#    plt.plot(v_motor[:-1, 1], 'r', label='Motor2')
+#    plt.title('Velocity')
+#    plt.legend()
     
 #    plt.figure()
 #    plt.plot(theta)
@@ -358,7 +406,7 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
 #    plt.semilogy(FE)
 #    plt.title('Free Energy')
 #    
-#    
+    
 #    points = 100
 #    x_map = range(points)
 #    y_map = range(points)
@@ -372,9 +420,9 @@ def BraitenbergFreeEnergy2(noise_level, desired_confidence):
 #    light_map = plt.imshow(light, extent=(0., points, 0., points),
 #               interpolation='nearest', cmap='jet')
 #    cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
-    
-    
-    return x_agent
+#    
+#    
+    return x_agent, rho, v_motor, mu_x, mu_m
 
 
 def BraitenbergFreeEnergy(noise_level, desired_confidence):
@@ -548,13 +596,15 @@ def BraitenbergFreeEnergy(noise_level, desired_confidence):
 
 ### standard Braitenberg vehicle ###
 
-def Braitenberg(noise_level, desired_confidence):
+def Braitenberg(noise_level, desired_confidence, z2):
+    x_light = np.array([59.,47.])
     
     # noise on sensory input
     gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
     pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
     sigma_z = 1 / (np.sqrt(pi_z))
     z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+    z = z2
     
     # noise on motion of hidden states
     gamma_w = desired_confidence * np.ones((hidden_states, ))    # log-precision
@@ -595,7 +645,7 @@ def Braitenberg(noise_level, desired_confidence):
 #    line1, = ax.plot(x_agent2[0, 0], x_agent2[0, 1], color='lightblue', marker='.', markersize=30*radius)       # Returns a tuple of line objects, thus the comma
 #    line2, = ax.plot(orientation[0, :], orientation[1, :], color='black', linewidth=2)            # Returns a tuple of line objects, thus the comma
     
-    s2[0, :], rho2[0, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[0, :], z[0, :], -(s2[0, :] + z[0, :] / np.sqrt(dt)), 0)
+    s2[0, :], rho2[0, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[0, :], z[0, :], s2[0, :] + z[0, :] / np.sqrt(dt), 0)
     for i in range(1, iterations - 1):
 #        if x_agent2[i - 1, 0] > 80.:
 #            break
@@ -610,36 +660,48 @@ def Braitenberg(noise_level, desired_confidence):
 #        line2.set_ydata(orientation[1,:])
 #        fig.canvas.draw()
 #        plt.pause(0.05)
-        
-    plt.figure()
-    plt.plot(x_agent2[:, 0], x_agent2[:, 1])
-#    plt.xlim((0,100))
-#    plt.ylim((0,100))
+
+#    aa = acf(x_agent2[:, 0])
+#    bb = acf(x_agent2[:, 1])
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(aa)
+#    plt.subplot(1, 2, 2)
+#    plt.plot(bb)
+#    
+#    print(aa[1])
+#    print(bb[1])
+    
+#    plt.figure()
+#    plt.plot(x_agent2[:, 0], x_agent2[:, 1])
+#    plt.xlim((0,80))
+#    plt.ylim((0,80))
 #    plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
-    plt.plot(x_agent2[0, 0], x_agent2[0, 1], color='red', marker='o', markersize=8)
-    #
-    #plt.figure()
-    #plt.subplot(1, 2, 1)
-    #plt.plot(x_agent2[:-1, 0], 'b', np.ones(iterations - 1) * x_light[0], 'r')
-    #plt.subplot(1, 2, 2)
-    #plt.plot(x_agent2[:-1, 1], 'b', np.ones(iterations - 1) * x_light[1], 'r')
-    #plt.title('Position')
-    #    
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.plot(rho2[:-1, 0], 'b', label='Noisy signal')
-    plt.plot(s2[:-1, 0], 'g', label='Signal')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(rho2[:-1, 1], 'b', label='Noisy signal')
-    plt.plot(s2[:-1, 1], 'g', label='Signal')
-    plt.legend()
-    #
-    plt.figure()
-    plt.plot(v_motor2[:-1, 0], 'b', label='Motor1')
-    plt.plot(v_motor2[:-1, 1], 'r', label='Motor2')
-    plt.title('Velocity')
-    plt.legend()
+#    plt.plot(x_agent2[0, 0], x_agent2[0, 1], color='red', marker='o', markersize=8)
+#    plt.title('Trajectory (Braitenberg)')
+    
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(x_agent2[:-1, 0], 'b', np.ones(iterations - 1) * x_light[0], 'r')
+#    plt.subplot(1, 2, 2)
+#    plt.plot(x_agent2[:-1, 1], 'b', np.ones(iterations - 1) * x_light[1], 'r')
+#    plt.title('Position')
+#        
+#    plt.figure()
+#    plt.subplot(1, 2, 1)
+#    plt.plot(rho2[:-1, 0], 'b', label='Noisy signal')
+#    plt.plot(s2[:-1, 0], 'g', label='Signal')
+#    plt.legend()
+#    plt.subplot(1, 2, 2)
+#    plt.plot(rho2[:-1, 1], 'b', label='Noisy signal')
+#    plt.plot(s2[:-1, 1], 'g', label='Signal')
+#    plt.legend()
+#    
+#    plt.figure()
+#    plt.plot(v_motor2[:-1, 0], 'b', label='Motor1')
+#    plt.plot(v_motor2[:-1, 1], 'r', label='Motor2')
+#    plt.title('Velocity')
+#    plt.legend()
     #
     #plt.figure()
     #plt.plot(theta2)
@@ -659,14 +721,447 @@ def Braitenberg(noise_level, desired_confidence):
 #               interpolation='nearest', cmap='jet')
 #    cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
 #    
-    return x_agent2
+    return x_agent2, rho2
+
+def acf(x):
+    """
+    http://stackoverflow.com/q/14297012/190597
+    http://en.wikipedia.org/wiki/Autocorrelation#Estimation
+    """
+    n = len(x)
+    variance = x.var()
+    x = x-x.mean()
+    r = np.correlate(x, x, mode = 'full')[-n:]
+    assert np.allclose(r, np.array([(x[:n-k]*x[-(n-k):]).sum() for k in range(n)]))
+    result = r/(variance*(np.arange(n, 0, -1)))
+    return result
+
+
+motor_confidence = - 10.
+desire_confidence = np.array([- 12., - 12., 0., 3. ])
+motor_learning_rate = 5000000
+motor_brain_state_learning_rate = 1000000
+noise_level = 2
+gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
+pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+sigma_z = 1 / (np.sqrt(real_pi_z))
+z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+#
+#agent_position, rho = Braitenberg(noise_level, desire_confidence[0], z)
+#agent_position2, rho2, mu_x2, mu_m2 = BraitenbergFreeEnergy2(noise_level, desire_confidence[1], motor_confidence, motor_learning_rate, motor_brain_state_learning_rate, z)
+#agent_position3, rho3, mu_x3, mu_m3 = BraitenbergFreeEnergy2(noise_level, desire_confidence[2], motor_confidence, motor_learning_rate, motor_brain_state_learning_rate, z)
+#agent_position4, rho4, mu_x4, mu_m4 = BraitenbergFreeEnergy2(noise_level, desire_confidence[3], motor_confidence, motor_learning_rate, motor_brain_state_learning_rate, z)
+##
+##
+#### plots for paper ###
+#x_light = np.array([59.,47.])
+#
+#plt.figure()
+#plt.subplot(2, 2, 1)
+#plt.plot(agent_position[:, 0], agent_position[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position[0, 0], agent_position[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Braitenberg)')
+#
+#plt.subplot(2, 2, 2)
+#plt.plot(agent_position2[:, 0], agent_position2[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position2[0, 0], agent_position2[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(-' + str(12) + ')')
+#
+#plt.subplot(2, 2, 3)
+#plt.plot(agent_position3[:, 0], agent_position3[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position3[0, 0], agent_position3[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(0) + ')')
+#
+#plt.subplot(2, 2, 4)
+#plt.plot(agent_position4[:, 0], agent_position4[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position4[0, 0], agent_position4[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(3) + ')')
+#
+#plt.figure()
+#
+#plt.subplot(2, 2, 1)
+#plt.plot(np.arange(0, T-dt, dt), rho[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), rho[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Braitenberg)')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 2)
+#plt.plot(np.arange(0, T-dt, dt), rho2[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), mu_x2[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(-' + str(12) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 3)
+#plt.plot(np.arange(0, T-dt, dt), rho3[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(0) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 4)
+#plt.plot(np.arange(0, T-dt, dt), rho4[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), mu_x4[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(3) + ')')
+#plt.legend(loc = 4)
+#
+
+#motor_confidence = np.array([- 10., - 2., 5., 12. ])
+#motor_learning_rate = np.array([5000000., 5000., 100., .01])
+#motor_brain_state_learning_rate = np.array([1000000., 8000., 10, .01])
+#desire_confidence = - 12.
+#noise_level = 2
+#
+#agent_position, rho, mu_x, mu_m = BraitenbergFreeEnergy2(noise_level, desire_confidence, motor_confidence[0], motor_learning_rate[0], motor_brain_state_learning_rate[0], z)
+#agent_position2, rho2, mu_x2, mu_m2 = BraitenbergFreeEnergy2(noise_level, desire_confidence, motor_confidence[1], motor_learning_rate[1], motor_brain_state_learning_rate[1], z)
+#agent_position3, rho3, mu_x3, mu_m3 = BraitenbergFreeEnergy2(noise_level, desire_confidence, motor_confidence[2], motor_learning_rate[2], motor_brain_state_learning_rate[2], z)
+#agent_position4, rho4, mu_x4, mu_m4 = BraitenbergFreeEnergy2(noise_level, desire_confidence, motor_confidence[3], motor_learning_rate[3], motor_brain_state_learning_rate[3], z)
+#
+#x_light = np.array([59.,47.])
+#
+#plt.figure()
+#plt.subplot(2, 2, 1)
+#plt.plot(agent_position[:, 0], agent_position[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position[0, 0], agent_position[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[0]) + ')')
+#
+#plt.subplot(2, 2, 2)
+#plt.plot(agent_position2[:, 0], agent_position2[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position2[0, 0], agent_position2[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[1]) + ')')
+#
+#plt.subplot(2, 2, 3)
+#plt.plot(agent_position3[:, 0], agent_position3[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position3[0, 0], agent_position3[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[2]) + ')')
+#
+#plt.subplot(2, 2, 4)
+#plt.plot(agent_position4[:, 0], agent_position4[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position4[0, 0], agent_position4[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[3]) + ')')
+#
+#
+#plt.figure()
+#
+#plt.subplot(2, 2, 1)
+#plt.plot(np.arange(0, T-dt, dt), mu_x[:-1, 0], 'b', label='Brain state sensor')
+#plt.plot(np.arange(0, T-dt, dt), mu_m[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+#plt.title('Brain states (beliefs), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[0]) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 2)
+#plt.plot(np.arange(0, T-dt, dt), mu_x2[:-1, 0], 'b', label='Brain state sensor')
+#plt.plot(np.arange(0, T-dt, dt), mu_m2[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+#plt.title('Brain states (beliefs), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[1]) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 3)
+#plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], 'b', label='Brain state sensor')
+#plt.plot(np.arange(0, T-dt, dt), mu_m3[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+#plt.title('Brain states (beliefs), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[2]) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 4)
+#plt.plot(np.arange(0, T-dt, dt), mu_x4[:-1, 0], 'b', label='Brain state sensor')
+#plt.plot(np.arange(0, T-dt, dt), mu_m4[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+#plt.title('Brain states (beliefs), $\pi_{w_3} = \pi_{w_4} = $ exp(' + str(motor_confidence[3]) + ')')
+#plt.legend(loc = 4)
+#plt.suptitle('Left sensor')
+
+
+#motor_confidence = - 10.
+#desire_confidence = np.array([- 12., - 12., 0., 3. ])
+#motor_learning_rate = 5000000
+#motor_brain_state_learning_rate = 1000000
+#noise_level = - 2
+#gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
+#pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+#real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+#sigma_z = 1 / (np.sqrt(real_pi_z))
+#z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+#
+#agent_position, rho = Braitenberg(noise_level, desire_confidence[0], z)
+##agent_position2, rho2, mu_x2, mu_m2 = BraitenbergFreeEnergy2(-2, desire_confidence[1], motor_confidence, motor_learning_rate, motor_brain_state_learning_rate, z)
+##agent_position3, rho3, mu_x3, mu_m3 = BraitenbergFreeEnergy2(-3, desire_confidence[1], motor_confidence, motor_learning_rate, motor_brain_state_learning_rate, z)
+##agent_position4, rho4, mu_x4, mu_m4 = BraitenbergFreeEnergy2(-4, desire_confidence[1], motor_confidence, motor_learning_rate, motor_brain_state_learning_rate, z)
+##
+##
+#### plots for paper ###
+#x_light = np.array([59.,47.])
+#
+#plt.figure()
+#plt.subplot(2, 2, 1)
+#plt.plot(agent_position[:, 0], agent_position[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position[0, 0], agent_position[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Braitenberg)')
+#
+#plt.subplot(2, 2, 2)
+#plt.plot(agent_position2[:, 0], agent_position2[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position2[0, 0], agent_position2[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(-' + str(12) + ')')
+#
+#plt.subplot(2, 2, 3)
+#plt.plot(agent_position3[:, 0], agent_position3[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position3[0, 0], agent_position3[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(0) + ')')
+#
+#plt.subplot(2, 2, 4)
+#plt.plot(agent_position4[:, 0], agent_position4[:, 1])
+#plt.xlim((0,80))
+#plt.ylim((0,80))
+#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+#plt.plot(agent_position4[0, 0], agent_position4[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+#plt.title('Trajectory (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(3) + ')')
+#
+#plt.figure()
+#
+#plt.subplot(2, 2, 1)
+#plt.plot(np.arange(0, T-dt, dt), rho[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), rho[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Braitenberg)')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 2)
+#plt.plot(np.arange(0, T-dt, dt), rho2[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), mu_x2[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(-' + str(12) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 3)
+#plt.plot(np.arange(0, T-dt, dt), rho3[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(0) + ')')
+#plt.legend(loc = 4)
+#plt.subplot(2, 2, 4)
+#plt.plot(np.arange(0, T-dt, dt), rho4[:-1, 0], 'b', label='Noisy signal')
+#plt.plot(np.arange(0, T-dt, dt), mu_x4[:-1, 0], 'r', label='Brain state')
+#plt.xlabel('Time')
+#plt.title('Luminance (Active Inference), $\pi_{w_1} = \pi_{w_2} = $ exp(' + str(3) + ')')
+#plt.legend(loc = 4)
 
 
 
 
-agent_position = BraitenbergFreeEnergy2(8, -12)
-#agent_position = BraitenbergFreeEnergy(8, 12)
-#agent_position = Braitenberg(8, -12)
+
+noise_level = 2.
+sensor_confidence = np.array([- 12., noise_level])
+prior_confidence = np.array([- 32., - 6.])
+motor_confidence = np.array([- 10., - 4.])
+
+agent_position, rho, rho_m, mu_x, mu_m = BraitenbergFreeEnergy2(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z)
+agent_position2, rho2, rho_m2, mu_x2, mu_m2 = BraitenbergFreeEnergy2(noise_level, sensor_confidence[0], prior_confidence[1], motor_confidence[0], z)
+agent_position3, rho3, rho_m3, mu_x3, mu_m3 = BraitenbergFreeEnergy2(noise_level, sensor_confidence[1], prior_confidence[0], motor_confidence[0], z)
+agent_position4, rho4, rho_m4, mu_x4, mu_m4 = BraitenbergFreeEnergy2(noise_level, sensor_confidence[1], prior_confidence[0], motor_confidence[1], z)
+
+x_light = np.array([59.,47.])
+
+
+plt.figure(figsize=(8, 7))
+plt.suptitle('Trajectories (FEP - Active Inference)', fontsize=20)
+plt.subplot(2, 2, 1)
+plt.plot(agent_position[:, 0], agent_position[:, 1])
+plt.xlim((0,80))
+plt.ylim((0,80))
+plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+plt.plot(agent_position[0, 0], agent_position[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Case 1 - Reference behaviour', fontsize=14)
+
+plt.subplot(2, 2, 2)
+plt.plot(agent_position2[:, 0], agent_position2[:, 1])
+plt.xlim((0,80))
+plt.ylim((0,80))
+plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+plt.plot(agent_position2[0, 0], agent_position2[0, 1], color='red', marker='o', markersize=8)
+#plt.xlabel('x')
+#plt.ylabel('y')
+plt.title('Case 2 - Low $\pi_{z[{s_1}]}$', fontsize=14)
+
+plt.subplot(2, 2, 3)
+plt.plot(agent_position3[:, 0], agent_position3[:, 1])
+plt.xlim((0,80))
+plt.ylim((0,80))
+plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+plt.plot(agent_position3[0, 0], agent_position3[0, 1], color='red', marker='o', markersize=8)
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Case 3 - Low $\pi_{w[{m_1}]}$', fontsize=14)
+
+plt.subplot(2, 2, 4)
+plt.plot(agent_position4[:, 0], agent_position4[:, 1])
+plt.xlim((0,80))
+plt.ylim((0,80))
+plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
+plt.plot(agent_position4[0, 0], agent_position4[0, 1], color='red', marker='o', markersize=8)
+plt.xlabel('x')
+#plt.ylabel('y')
+plt.title('Case 4 - High $\pi_{w[{s_1}]}$', fontsize=14)
+
+
+plt.figure(figsize=(8, 7))
+plt.suptitle('Left sensor tracking', fontsize=20)
+plt.subplot(2, 2, 1)
+plt.plot(np.arange(0, T-dt, dt), rho[:-1, 0], 'b', label='Sensor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_x[:-1, 0], 'r', label='Brain state sensor')
+#plt.xlabel('Time')
+plt.ylabel('Luminance')
+plt.title('Case 1 - Reference behaviour', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 2)
+plt.plot(np.arange(0, T-dt, dt), rho2[:-1, 0], 'b', label='Sensor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_x2[:-1, 0], 'r', label='Brain state sensor')
+#plt.xlabel('Time')
+plt.title('Case 2 - Low $\pi_{z[{s_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 3)
+plt.plot(np.arange(0, T-dt, dt), rho3[:-1, 0], 'b', label='Sensor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], 'r', label='Brain state sensor')
+plt.xlabel('Time')
+plt.ylabel('Luminance')
+plt.title('Case 3 - Low $\pi_{w[{m_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 4)
+plt.plot(np.arange(0, T-dt, dt), rho4[:-1, 0], 'b', label='Sensor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_x4[:-1, 0], 'r', label='Brain state sensor')
+plt.xlabel('Time')
+plt.title('Case 4 - High $\pi_{w[{s_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+
+
+plt.figure(figsize=(8, 7))
+plt.suptitle('Left sensor - right motor matching', fontsize=20)
+plt.subplot(2, 2, 1)
+plt.plot(np.arange(0, T-dt, dt), mu_x[:-1, 0], 'b', label='Brain state sensor')
+plt.plot(np.arange(0, T-dt, dt), mu_m[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+plt.ylabel('Luminance - Speed')
+plt.title('Case 1 - Reference behaviour', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 2)
+plt.plot(np.arange(0, T-dt, dt), mu_x2[:-1, 0], 'b', label='Brain state sensor')
+plt.plot(np.arange(0, T-dt, dt), mu_m2[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+plt.title('Case 2 - Low $\pi_{z[{s_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 3)
+plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], 'b', label='Brain state sensor')
+plt.plot(np.arange(0, T-dt, dt), mu_m3[:-1, 0], 'r', label='Brain state motor')
+plt.xlabel('Time')
+plt.ylabel('Luminance - Speed')
+plt.title('Case 3 - Low $\pi_{w[{m_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 4)
+plt.plot(np.arange(0, T-dt, dt), mu_x4[:-1, 0], 'b', label='Brain state sensor')
+plt.plot(np.arange(0, T-dt, dt), mu_m4[:-1, 0], 'r', label='Brain state motor')
+plt.xlabel('Time')
+plt.title('Case 4 - High $\pi_{w[{s_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+
+
+plt.figure(figsize=(8, 7))
+
+plt.suptitle('Left motor reflex arc', fontsize=20)
+plt.subplot(2, 2, 1)
+plt.plot(np.arange(0, T-dt, dt), rho_m[:-1, 0], 'b', label='Motor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_m[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+plt.ylabel('Speed')
+plt.title('Case 1 - Reference behaviour', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 2)
+plt.plot(np.arange(0, T-dt, dt), rho_m2[:-1, 0], 'b', label='Motor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_m2[:-1, 0], 'r', label='Brain state motor')
+#plt.xlabel('Time')
+plt.title('Case 2 - Low $\pi_{z[{s_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.subplot(2, 2, 3)
+plt.plot(np.arange(0, T-dt, dt), rho_m3[:-1, 0], 'b', label='Motor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_m3[:-1, 0], 'r', label='Brain state motor')
+plt.xlabel('Time')
+plt.ylabel('Speed')
+plt.title('Case 3 - Low $\pi_{w[{m_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+plt.subplot(2, 2, 4)
+plt.plot(np.arange(0, T-dt, dt), rho_m4[:-1, 0], 'b', label='Motor reading')
+plt.plot(np.arange(0, T-dt, dt), mu_m4[:-1, 0], 'r', label='Brain state motor')
+plt.xlabel('Time')
+plt.title('Case 4 - High $\pi_{w[{s_1}]}$', fontsize=14)
+plt.legend(loc = 4)
+plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
