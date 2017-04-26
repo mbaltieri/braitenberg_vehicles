@@ -20,10 +20,10 @@ import scipy.fftpack
 
 dt_brain = .005
 dt_world = .0005
-T = 30
+T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
-np.random.seed(42)
+#np.random.seed(42)
 
 sensors_n = 2
 motors_n = 2
@@ -118,7 +118,7 @@ def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w, eta):
                  np.log(np.prod(np.exp(mu_gamma_z)) *
                         np.prod(np.exp(mu_gamma_w))))
 
-def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, motor_confidence, z1):
+def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, motor_confidence, z1, learning_rate):
     s = np.zeros((iterations, sensors_n))
     v = np.zeros((sensors_n))
     theta = np.zeros((iterations, ))                            # orientation of the agent
@@ -140,9 +140,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     dFda = np.zeros((iterations, motors_n))
     drhoda = np.zeros((obs_states, motors_n))
     
-    k_mu_x = 1 * np.ones(hidden_states,)
-    k_mu_m = 10000 * np.ones(hidden_states,)
-    k_a = 5000000 * np.ones(motors_n,)
+    k = learning_rate
     
     # noise on sensory input
     gamma_z = sensor_confidence * np.ones((obs_states, ))    # log-precisions
@@ -181,13 +179,10 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
 #    drhoda = - np.array([[1., 0.], [0., 1.]])             # vehicle 3a - lover
 #    drhoda = np.array([[0., 1.], [1., 0.]])             # vehicle 2b - aggressor
     drhoda = np.array([[1., 0.], [0., 1.]])             # vehicle 2b - aggressor
-    x_agent[0, :] = np.array([10., 10.])
+    x_agent[0, :] = np.array([0., 0.])
     theta[0] = np.pi / 2
     
     for i in range(iterations - 1):
-#        z[i, :] = 10 * np.sin(i / 100)
-        
-            
         s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], a[i, :], i)
         
         FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w, mu_v[i, :])
@@ -199,37 +194,28 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
         
         # update equations
-        mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k_mu_x * dFdmu_x)
-        mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k_mu_m * dFdmu_m)
+        mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k * dFdmu_x)
+        mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k * dFdmu_m)
         mu_v[i + 1, :] = mu_v[i, :]
-        a[i + 1, :] = a[i, :] + dt_brain * (- k_a * dFda[i, :])
+        a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
 #        a[i + 1, :] = l_max - mu_m[i, :]                                        # vehicle 3a - lover
         a[i + 1, :] = mu_m[i, :]                                        # vehicle 2b - aggressor
     return x_agent, s, rho, v_motor, mu_x, mu_m, FE
 
 
-motor_confidence = - 10.
-desire_confidence = np.array([- 12., - 12., 0., 3. ])
-motor_learning_rate = 5000000
-motor_brain_state_learning_rate = 1000000
-noise_level = 2
+noise_level = - 2.
 gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
 real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
 sigma_z = 1 / (np.sqrt(real_pi_z))
 z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
 
-
-
-noise_level = 2.
 sensor_confidence = np.array([- 12., noise_level])
-prior_confidence = np.array([- 32., - 6.])
-motor_confidence = np.array([- 10., - 4])
+prior_confidence = np.array([- 32., 3])
+motor_confidence = np.array([noise_level - 2, 2.])
+learning_rate = 10
 
-
-photoaxis_first = False 
-
-agent_position, s, rho, rho_m, mu_x, mu_m, F = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z)
+agent_position, s, rho, rho_m, mu_x, mu_m, F = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
 #agent_position2, rho2, rho_m2, mu_x2, mu_m2, foo = BraitenbergFreeEnergy(noise_level, sensor_confidence[0], prior_confidence[1], motor_confidence[0], z)
 #agent_position3, rho3, rho_m3, mu_x3, mu_m3, F3 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[0], motor_confidence[1], z)
 
@@ -276,6 +262,20 @@ plt.xlabel('Time (s)')
 plt.ylabel('Velocity')
 plt.title('Proprioceptor $ρ_{m_2}$, $\mu_{m_2}$', fontsize=14)
 plt.legend(loc = 4)
+
+points = 100
+x_map = range(points)
+y_map = range(points)
+light = np.zeros((points, points))
+
+for i in range(points):
+    for j in range(points):
+        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
+
+light_fig = plt.figure()
+light_map = plt.imshow(light, extent=(0., points, 0., points),
+           interpolation='nearest', cmap='jet')
+cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
 
 #
 #
