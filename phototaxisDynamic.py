@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Apr 13 18:18:22 2017
+Created on Fri Apr 28 17:34:40 2017
 
-In the definition of variables, hidden_states > hidden_causes and even when 
-I could use hidden_causes to define smaller arrays most of the time I still use 
-hidden_states to get easier matrix multiplications, the extra elements are = 0.
-
-Learning rates are used as a shortcut to prevent poor appr
+Dynamic version of Braitenberg vehicle under active inference
 
 @author: mb540
 """
@@ -19,7 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import scipy.fftpack
 
 dt_brain = .005
-dt_world = .00005
+dt_world = .0005
 T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
@@ -92,7 +88,7 @@ def g_gm(x, v):
     return g(x, v)
 
 def f_gm(x, v):
-    return v
+    return x[:, 0] + v
 
 def getObservationFE(x_agent, v_agent, v_motor, theta, v, w, z, a, iteration):
     x, v_motor = f(x_agent, v_agent, v_motor, theta, v, w, a, iteration)
@@ -105,7 +101,7 @@ def sensoryErrors(y, mu_x, mu_v, mu_gamma_z):
     return eps_z, xi_z
 
 def dynamicsErrors(mu_x, mu_v, mu_gamma_w):
-    eps_w = mu_x - f_gm(mu_x, mu_v)
+    eps_w = mu_x[:, 1] - f_gm(mu_x, mu_v)
     pi_gamma_w = np.exp(mu_gamma_w) * np.ones((hidden_states, ))
     xi_w = pi_gamma_w * eps_w
     return eps_w, xi_w
@@ -119,6 +115,8 @@ def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w):
                         np.prod(np.exp(mu_gamma_w))))
 
 def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, motor_confidence, z1, learning_rate):
+    temp_orders_states = 2
+    
     s = np.zeros((iterations, sensors_n))
     v = np.zeros((sensors_n))
     theta = np.zeros((iterations, ))                            # orientation of the agent
@@ -130,8 +128,8 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     ### Free Energy definition
     FE = np.zeros((iterations,))
     rho = np.zeros((iterations, obs_states))
-    mu_x = np.zeros((iterations, hidden_states))
-    mu_m = np.zeros((iterations, hidden_states))
+    mu_x = np.zeros((iterations, hidden_states, temp_orders_states))
+    mu_m = np.zeros((iterations, hidden_states, temp_orders_states))
     mu_v = np.zeros((iterations, hidden_causes))
     a = np.zeros((iterations, motors_n))
     eps_z = np.zeros((iterations, obs_states))
@@ -140,7 +138,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     xi_w = np.zeros((iterations, hidden_states))
     
     dFdmu_x = np.zeros((hidden_states))
-    dFdmu_m = np.zeros((hidden_states))
+    dFdmu_m = np.zeros((hidden_states, temp_orders_states))
     dFda = np.zeros((iterations, motors_n))
     drhoda = np.zeros((obs_states, motors_n))
     
@@ -162,7 +160,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     z_m = (np.dot(np.diag(sigma_z_m), np.random.randn(motors_n, iterations))).transpose()
     
     # noise on motion of hidden states
-    gamma_w = - 12 * np.ones((hidden_states, ))    # log-precision
+    gamma_w = - 32 * np.ones((hidden_states, ))    # log-precision
     pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
     sigma_w = 1 / (np.sqrt(pi_w))
     w = (np.dot(np.diag(sigma_w), np.random.randn(sensors_n, iterations))).transpose()
@@ -189,31 +187,32 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     for i in range(iterations - 1):
         s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], a[i, :], i)
         
-        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
-        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, :], gamma_w)
-        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w)         # no prediction errors on rho_m since velocities are implemented instantenously
-        
+#        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :, 0], mu_v[i, :], gamma_z)
+#        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_m[i, :], mu_x[i, :, 0], gamma_w)
+#        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :, 0], mu_v[i, :], gamma_z, gamma_w)         # no prediction errors on rho_m since velocities are implemented instantenously
+#        
         # find derivatives
-        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)
-        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                 # vehicle 2b - aggressor
+        dFdmu_x = pi_z * (mu_x[i, :, 0] - s[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain) + pi_w_m * (mu_m[i, :, 1] + mu_m[i, :, 0] - mu_x[i, ::-1, 0]) + pi_z_m * (v_motor[i, :] - mu_m[i, :, 0]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain) #+ pi_w * (mu_x[i, :, 0] - mu_v[i, :])
+        dFdmu_m[:, 0] = pi_z_m * (mu_m[i, :, 0] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :, 1] + mu_m[i, :, 0] - mu_x[i, ::-1, 0]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                 # vehicle 2b - aggressor
+        dFdmu_m[:, 1] = pi_w_m * (mu_m[i, :, 1] + mu_m[i, :, 0] - mu_x[i, ::-1, 0])
 #        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :])# - pi_z_m * z_m[i, :] / np.sqrt(dt)             # vehicle 3a - lover
-        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
+        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :, 0]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
         
         # update equations
-        mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k * dFdmu_x)
+        mu_x[i + 1, :, 0] = mu_x[i, :, 0] + dt_brain * (- k * dFdmu_x)
         mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k * dFdmu_m)
         mu_v[i + 1, :] = mu_v[i, :]
         a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
 #        a[i + 1, :] = l_max - mu_m[i, :]                                        # vehicle 3a - lover
-        a[i + 1, :] = mu_m[i, :]                                        # vehicle 2b - aggressor
-        mu_m[i + 1, :] = mu_x[i, ::-1]
+        a[i + 1, :] = mu_m[i, :, 0]                                        # vehicle 2b - aggressor
+        mu_m[i + 1, :, 1] = mu_m[i, :, 1] + dt * (- k * (pi_z_m + pi_w_m) * mu_m[i, :, 1] + pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_x[i, ::-1, 0]
 #        mu_x[i + 1, :] = (pi_z * rho[i, :] + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
 #        mu_x[i + 1, :] = (pi_z * s[i, :] + z[i, :] / np.sqrt(dt_brain) + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
         
-    return x_agent, s, rho, v_motor, mu_x, mu_m, FE, eps_z, xi_z, eps_w, xi_w
+    return x_agent, s, rho, v_motor, mu_x[:, :, 0], mu_m, FE, eps_z, xi_z, eps_w, xi_w
 
 
-noise_level = - 2.
+noise_level = 2.
 gamma_z = noise_level * np.ones((sensors_n, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
 real_pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
@@ -259,7 +258,8 @@ plt.legend(loc = 4)
 
 plt.figure(figsize=(5, 4))
 plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_x[:-1, 0], 'b', label='Belief about sensory reading $\mu_{l_1}$')
-plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_m[:-1, 1], ':r', label='Belief about motor reading $\mu_{m_2}$')
+plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_m[:-1, 1, 0], ':r', label='Belief about motor reading $\mu_{m_2}$')
+plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_m[:-1, 1, 1], ':g', label='Derivative belief about motor reading $\mu\'_{m_2}$')
 plt.xlabel('Time (s)')
 plt.ylabel('Luminance, Motor velocity')
 plt.title('Beliefs $\mu_{l_1}$, $\mu_{m_2}$', fontsize=14)
@@ -267,7 +267,7 @@ plt.legend(loc = 4)
 
 plt.figure(figsize=(5, 4))
 plt.plot(np.arange(0, T-dt_brain, dt_brain), rho_m[:-1, 1], 'b', label='Motor reading $ρ_{m_2}$')
-plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_m[:-1, 1], ':r', label='Belief about motor reading $\mu_{m_2}$')
+plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_m[:-1, 1, 0], ':r', label='Belief about motor reading $\mu_{m_2}$')
 plt.xlabel('Time (s)')
 plt.ylabel('Velocity')
 plt.title('Proprioceptor $ρ_{m_2}$, $\mu_{m_2}$', fontsize=14)
