@@ -19,7 +19,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import scipy.fftpack
 
 dt_brain = .005
-dt_world = .0005
+dt_world = .00005
 T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
@@ -106,11 +106,11 @@ def sensoryErrors(y, mu_x, mu_v, mu_gamma_z):
 
 def dynamicsErrors(mu_x, mu_v, mu_gamma_w):
     eps_w = mu_x - f_gm(mu_x, mu_v)
-    pi_gamma_w = np.exp(mu_gamma_w) * np.ones((obs_states, ))
+    pi_gamma_w = np.exp(mu_gamma_w) * np.ones((hidden_states, ))
     xi_w = pi_gamma_w * eps_w
     return eps_w, xi_w
 
-def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w, eta):
+def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w):
     eps_z, xi_z = sensoryErrors(y, mu_x, mu_v, mu_gamma_z)
     eps_w, xi_w = dynamicsErrors(mu_x, mu_v, mu_gamma_w)
     return .5 * (np.trace(np.dot(eps_z[:, None], np.transpose(xi_z[:, None]))) +
@@ -134,6 +134,10 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     mu_m = np.zeros((iterations, hidden_states))
     mu_v = np.zeros((iterations, hidden_causes))
     a = np.zeros((iterations, motors_n))
+    eps_z = np.zeros((iterations, obs_states))
+    xi_z = np.zeros((iterations, obs_states))
+    eps_w = np.zeros((iterations, hidden_states))
+    xi_w = np.zeros((iterations, hidden_states))
     
     dFdmu_x = np.zeros((hidden_states))
     dFdmu_m = np.zeros((hidden_states))
@@ -143,30 +147,30 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     k = learning_rate
     
     # noise on sensory input
-    gamma_z = sensor_confidence * np.ones((obs_states, ))    # log-precisions
-    real_gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions (real world)
-    pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
-    real_pi_z = np.exp(real_gamma_z) * np.ones((obs_states, ))
+    gamma_z = sensor_confidence * np.ones((sensors_n, ))    # log-precisions
+    real_gamma_z = noise_level * np.ones((sensors_n, ))    # log-precisions (real world)
+    pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
+    real_pi_z = np.exp(real_gamma_z) * np.ones((sensors_n, ))
     sigma_z = 1 / (np.sqrt(real_pi_z))
-    z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+    z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose()
     z = z1
     
-    gamma_z_m = motor_confidence * np.ones((obs_states, ))    # log-precisions
-    pi_z_m = np.exp(gamma_z_m) * np.ones((obs_states, ))
-    real_pi_z_m = np.exp(32) * np.ones((obs_states, ))
+    gamma_z_m = motor_confidence * np.ones((motors_n, ))    # log-precisions
+    pi_z_m = np.exp(gamma_z_m) * np.ones((motors_n, ))
+    real_pi_z_m = np.exp(32) * np.ones((motors_n, ))
     sigma_z_m = 1 / (np.sqrt(real_pi_z_m))
-    z_m = (np.dot(np.diag(sigma_z_m), np.random.randn(obs_states, iterations))).transpose()
+    z_m = (np.dot(np.diag(sigma_z_m), np.random.randn(motors_n, iterations))).transpose()
     
     # noise on motion of hidden states
     gamma_w = - 12 * np.ones((hidden_states, ))    # log-precision
     pi_w = np.exp(gamma_w) * np.ones((hidden_states, ))
     sigma_w = 1 / (np.sqrt(pi_w))
-    w = (np.dot(np.diag(sigma_w), np.random.randn(obs_states, iterations))).transpose()
+    w = (np.dot(np.diag(sigma_w), np.random.randn(sensors_n, iterations))).transpose()
     
     gamma_w_m = prior_confidence * np.ones((hidden_states, ))    # log-precision
     pi_w_m = np.exp(gamma_w_m) * np.ones((hidden_states, ))
     sigma_w_m = 1 / (np.sqrt(pi_w_m))
-    w_m = (np.dot(np.diag(sigma_w_m), np.random.randn(obs_states, iterations))).transpose()
+    w_m = (np.dot(np.diag(sigma_w_m), np.random.randn(motors_n, iterations))).transpose()
 
 
 
@@ -185,10 +189,12 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     for i in range(iterations - 1):
         s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], a[i, :], i)
         
-        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w, mu_v[i, :])
+        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
+        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, :], gamma_w)
+        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w)         # no prediction errors on rho_m since velocities are implemented instantenously
         
         # find derivatives
-        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :])  - pi_z * z[i, :] / np.sqrt(dt_brain)
+        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)
         dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                 # vehicle 2b - aggressor
 #        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :])# - pi_z_m * z_m[i, :] / np.sqrt(dt)             # vehicle 3a - lover
         dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
@@ -200,22 +206,26 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
 #        a[i + 1, :] = l_max - mu_m[i, :]                                        # vehicle 3a - lover
         a[i + 1, :] = mu_m[i, :]                                        # vehicle 2b - aggressor
-    return x_agent, s, rho, v_motor, mu_x, mu_m, FE
+        mu_m[i + 1, :] = mu_x[i, ::-1]
+#        mu_x[i + 1, :] = (pi_z * rho[i, :] + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
+        mu_x[i + 1, :] = (pi_z * s[i, :] + z[i, :] / np.sqrt(dt_brain) + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
+        
+    return x_agent, s, rho, v_motor, mu_x, mu_m, FE, eps_z, xi_z, eps_w, xi_w
 
 
 noise_level = - 2.
-gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
-pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
-real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
+gamma_z = noise_level * np.ones((sensors_n, ))    # log-precisions
+pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
+real_pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
 sigma_z = 1 / (np.sqrt(real_pi_z))
-z = (np.dot(np.diag(sigma_z), np.random.randn(obs_states, iterations))).transpose()
+z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose()
 
 sensor_confidence = np.array([- 12., noise_level])
-prior_confidence = np.array([- 32., 3])
+prior_confidence = np.array([- 32., 2.])
 motor_confidence = np.array([noise_level - 2, 2.])
 learning_rate = 10
 
-agent_position, s, rho, rho_m, mu_x, mu_m, F = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
+agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_w, xi_w = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
 #agent_position2, rho2, rho_m2, mu_x2, mu_m2, foo = BraitenbergFreeEnergy(noise_level, sensor_confidence[0], prior_confidence[1], motor_confidence[0], z)
 #agent_position3, rho3, rho_m3, mu_x3, mu_m3, F3 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[0], motor_confidence[1], z)
 
@@ -276,6 +286,11 @@ light_fig = plt.figure()
 light_map = plt.imshow(light, extent=(0., points, 0., points),
            interpolation='nearest', cmap='jet')
 cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
+
+plt.figure()
+plt.plot(xi_z[:, 0], 'b', label = 'PE left light sensor')
+plt.plot(xi_w[:, 0], 'r', label = 'PE prior')
+plt.legend(loc = 4)
 
 #
 #
