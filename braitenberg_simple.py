@@ -15,8 +15,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import scipy.fftpack
 
 dt_brain = .005
-dt_world = .005
-T = 3
+dt_world = .0005
+T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
 np.random.seed(42)
@@ -209,7 +209,7 @@ def Braitenberg(noise_level, desired_confidence, z2):
 
 
 
-noise_level = - 2.
+noise_level = - 3.
 gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
 real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
@@ -233,7 +233,7 @@ plt.title('Trajectory', fontsize=14)
 plt.figure(figsize=(5, 4))
 plt.plot(np.arange(0, T-dt_brain, dt_brain), rho[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
 plt.plot(np.arange(0, T-dt_brain, dt_brain), s[:-1, 0], 'g', label='Sensory reading $ρ_{l_1}$, no noise')
-plt.plot(np.arange(0, T-dt_brain, dt_brain), filtered_rho[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
+#plt.plot(np.arange(0, T-dt_brain, dt_brain), filtered_rho[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
 plt.xlabel('Time (s)')
 plt.ylabel('Luminance')
 #plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
