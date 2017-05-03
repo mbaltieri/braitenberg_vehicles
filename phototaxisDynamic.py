@@ -16,10 +16,10 @@ import scipy.fftpack
 
 dt_brain = .005
 dt_world = .0005
-T = 150
+T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
-#np.random.seed(42)
+np.random.seed(42)
 
 sensors_n = 2
 motors_n = 2
@@ -189,7 +189,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     alpha = 1.                              # decay rate
     
     for i in range(iterations - 1):
-        s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], s[i - 1, ::-1] + z[i - 1, ::-1] / np.sqrt(dt_brain), i)
+        s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], a[i, :], i)
         
         eps_z_l[i, :], xi_z_l[i, :] = sensoryErrors(rho[i, :], mu_x[i, :, 0], mu_v[i, :], gamma_z)
         eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :, 0], mu_v[i, :], gamma_z_m)
@@ -197,21 +197,24 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
 #        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :, 0], mu_v[i, :], gamma_z, gamma_w)         # no prediction errors on rho_m since velocities are implemented instantenously
 #        
         # find derivatives
-        dFdmu_x = pi_z * (mu_x[i, :, 0] - s[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain) + pi_w_m * (mu_m[i, :, 1] - alpha * (- mu_m[i, :, 0] + mu_x[i, ::-1, 0])) + pi_z_m * (v_motor[i, :] - mu_m[i, :, 0]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain) #+ pi_w * (mu_x[i, :, 0] - mu_v[i, :])
-        dFdmu_m[:, 0] = pi_z_m * (mu_m[i, :, 0] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :, 1] - alpha * (- mu_m[i, :, 0] + mu_x[i, ::-1, 0])) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                 # vehicle 2b - aggressor
+        dFdmu_x = pi_z * (mu_x[i, :, 0] - s[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain) + pi_w_m * (mu_m[i, :, 1] - alpha * (- mu_m[i, :, 0] + mu_x[i, ::-1, 0])) #+ pi_w * (mu_x[i, :, 0] - mu_v[i, :])
+        dFdmu_m[:, 0] = pi_z_m * (mu_m[i, :, 0] - v_motor[i, :]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain) + pi_w_m * (mu_m[i, :, 1] - alpha * (- mu_m[i, :, 0] + mu_x[i, ::-1, 0]))                  # vehicle 2b - aggressor
         dFdmu_m[:, 1] = pi_w_m * (mu_m[i, :, 1] - alpha * (- mu_m[i, :, 0] + mu_x[i, ::-1, 0]))
         dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :, 0]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
         
         # update equations
 #        mu_x[i + 1, :, 0] = mu_x[i, :, 0] + dt_brain * (- k * dFdmu_x)
 #        mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k * dFdmu_m)
-#        mu_v[i + 1, :] = mu_v[i, :]
+#        mu_m[i + 1, :, 0] = mu_m[i, :, 0] + dt_brain * (- k * dFdmu_m[:, 0])
+#        mu_m[i + 1, :, 1] = mu_m[i, :, 1] + dt_brain * (- k * dFdmu_m[:, 1])
 #        a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
 
-#        mu_m[i + 1, :, 1] = mu_m[i, :, 1] + dt_brain * (- .001*k * (mu_m[i, :, 0] - s[i, :] + z[i, :] / np.sqrt(dt_brain)))
-#        mu_m[i + 1, :, 0] = pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * (s[i, ::-1] + z[i, ::-1] / np.sqrt(dt_brain) - mu_m[i, :, 1]) / (pi_w_m + pi_z_m)
-        mu_x[i, :, 0] = s[i, :] + z[i, :] / np.sqrt(dt_brain)
-        mu_m[i + 1, :, 0] = mu_x[i, ::-1, 0]
+
+        mu_x[i + 1, :, 0] = s[i, :] + z[i, :] / np.sqrt(dt_brain)
+        mu_m[i + 1, :, 1] = mu_m[i, :, 1] + dt_brain * (- .01*k * (mu_m[i, :, 0] - mu_x[i, ::-1, 0]))
+#        mu_m[i + 1, :, 0] = pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * (mu_x[i, ::-1, 0] - mu_m[i, :, 1]) / (pi_w_m + pi_z_m)
+        mu_m[i + 1, :, 0] = mu_m[i, :, 0] + dt_brain * (- k * mu_m[i + 1, :, 1])
+#        mu_m[i + 1, :, 0] = mu_x[i, ::-1, 0]                                           # static version
         a[i + 1, :] = mu_m[i, :, 0] + z_m[i, :] / np.sqrt(dt_brain)                                       # vehicle 2b - aggressor
 #        mu_x[i + 1, :, 0] = rho[i, :]
 #        mu_x[i + 1, :] = (pi_z * rho[i, :] + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
