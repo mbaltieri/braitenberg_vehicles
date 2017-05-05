@@ -63,8 +63,8 @@ def f(x_agent, v_agent, v_motor, theta, v, w, a, i):
 #    v_motor[i, 1] = l_max - a[1]
     
     # vehicle 2b - aggressor
-    v_motor[i, 0] = a[1]
-    v_motor[i, 1] = a[0]
+    v_motor[i, 0] = a[0]
+    v_motor[i, 1] = a[1]
     
     # translation
     v_agent[i] = (v_motor[i, 0] + v_motor[i, 1]) / 2
@@ -140,9 +140,9 @@ def Braitenberg(noise_level, desired_confidence, z2):
 
     decay = 5
     
-    s2[0, :], rho2[0, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[0, :], z[0, :], (s2[0, :] + z[0, :] / np.sqrt(dt_brain)), 0)
+#    s2[0, :], rho2[0, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[0, :], z[0, :], (s2[0, ::-1] + z[0, ::-1] / np.sqrt(dt_brain)), 0)
     for i in range(1, iterations - 1):
-        s2[i, :], rho2[i, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[i, :], z[i, :], s2[i - 1, :] + z[i - 1, :] / np.sqrt(dt_brain), i)
+        s2[i, :], rho2[i, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[i, :], z[i, :], s2[i - 1, ::-1] + z[i - 1, ::-1] / np.sqrt(dt_brain), i)
 #        s2[i, :], rho2[i, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[i, :], z[i, :], filtered_rho2[i - 1, :], i)
 #        s2[i, :], rho2[i, :] = getObservation(x_agent2, v_agent2, v_motor2, theta2, 0., w[i, :], z[i, :], rho2[i - 1, :], i)
         
@@ -209,7 +209,7 @@ def Braitenberg(noise_level, desired_confidence, z2):
 
 
 
-noise_level = - 3.
+noise_level = - 5.
 gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
 real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))

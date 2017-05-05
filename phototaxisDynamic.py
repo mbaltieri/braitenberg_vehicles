@@ -19,7 +19,7 @@ dt_world = .0005
 T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
-np.random.seed(42)
+#np.random.seed(42)
 
 sensors_n = 2
 motors_n = 2
@@ -193,7 +193,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         
         eps_z_l[i, :], xi_z_l[i, :] = sensoryErrors(rho[i, :], mu_x[i, :, 0], mu_v[i, :], gamma_z)
         eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :, 0], mu_v[i, :], gamma_z_m)
-        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_m[i, :], mu_x[i, :, 0], gamma_w)
+        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_m[i, :], mu_x[i, :, 0], gamma_w_m)
 #        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :, 0], mu_v[i, :], gamma_z, gamma_w)         # no prediction errors on rho_m since velocities are implemented instantenously
 #        
         # find derivatives
@@ -211,9 +211,10 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
 
 
         mu_x[i + 1, :, 0] = s[i, :] + z[i, :] / np.sqrt(dt_brain)
-        mu_m[i + 1, :, 1] = mu_m[i, :, 1] + dt_brain * (- .01*k * (mu_m[i, :, 0] - mu_x[i, ::-1, 0]))
+#        mu_m[i + 1, :, 1] = mu_m[i, :, 1] + dt_brain * (- .01*k * (mu_m[i, :, 0] - mu_x[i, ::-1, 0]))
+        mu_m[i, :, 1] = - mu_m[i, :, 0] + mu_x[i, ::-1, 0]
 #        mu_m[i + 1, :, 0] = pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * (mu_x[i, ::-1, 0] - mu_m[i, :, 1]) / (pi_w_m + pi_z_m)
-        mu_m[i + 1, :, 0] = mu_m[i, :, 0] + dt_brain * (- k * mu_m[i + 1, :, 1])
+        mu_m[i + 1, :, 0] = mu_m[i, :, 0] + dt_brain * (10 * mu_m[i, :, 1])
 #        mu_m[i + 1, :, 0] = mu_x[i, ::-1, 0]                                           # static version
         a[i + 1, :] = mu_m[i, :, 0] + z_m[i, :] / np.sqrt(dt_brain)                                       # vehicle 2b - aggressor
 #        mu_x[i + 1, :, 0] = rho[i, :]
@@ -276,6 +277,9 @@ plt.xlabel('Time (s)')
 plt.ylabel('Luminance, Motor velocity')
 plt.title('Beliefs $\mu_{l_1}$, $\mu_{m_2}$', fontsize=14)
 plt.legend(loc = 4)
+
+plt.figure(figsize=(5, 4))
+plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_m[:-1, 1, 0], ':r', label='Belief about motor reading $\mu_{m_2}$')
 
 plt.figure(figsize=(5, 4))
 plt.plot(np.arange(0, T-dt_brain, dt_brain), rho_m[:-1, 1], 'b', label='Motor reading $ρ_{m_2}$')
