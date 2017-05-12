@@ -18,12 +18,12 @@ import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.fftpack
 
-dt_brain = .005
-dt_world = .0005
+dt_brain = .05
+dt_world = .005
 T = 200
 iterations = int(T/dt_brain)
 plt.close('all')
-#np.random.seed(42)
+np.random.seed(42)
 
 sensors_n = 2
 motors_n = 2
@@ -136,6 +136,8 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     a = np.zeros((iterations, motors_n))
     eps_z = np.zeros((iterations, obs_states))
     xi_z = np.zeros((iterations, obs_states))
+    eps_z_m = np.zeros((iterations, motors_n))
+    xi_z_m = np.zeros((iterations, motors_n))
     eps_w = np.zeros((iterations, hidden_states))
     xi_w = np.zeros((iterations, hidden_states))
     
@@ -203,8 +205,10 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
 #        mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k * dFdmu_x)
 #        mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k * dFdmu_m)
 #        a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
-        mu_x[i, :] = (pi_z * (s[i, :] + z[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
-        mu_m[i + 1, :] = (pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
+        mu_x[i, :] = (pi_z * rho[i, :] + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
+        mu_m[i + 1, :] = (pi_z_m * v_motor[i, :] + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
+#        mu_x[i, :] = (pi_z * (s[i, :] + z[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
+#        mu_m[i + 1, :] = (pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
         a[i + 1, :] = mu_m[i, :]                                        # vehicle 2b - aggressor
 #        mu_x[i + 1, :] = (pi_z * rho[i, :] + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
 #        mu_x[i + 1, :] = (pi_z * s[i, :] + z[i, :] / np.sqrt(dt_brain) + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
@@ -220,9 +224,9 @@ sigma_z = 1 / (np.sqrt(real_pi_z))
 z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose()
 
 sensor_confidence = np.array([- 12., noise_level])
-prior_confidence = np.array([- 32., noise_level - 0])
+prior_confidence = np.array([- 32., noise_level - 3])
 motor_confidence = np.array([noise_level - 12, 2.])
-learning_rate = 10
+learning_rate = 1
 
 agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
 #agent_position2, rho2, rho_m2, mu_x2, mu_m2, foo = BraitenbergFreeEnergy(noise_level, sensor_confidence[0], prior_confidence[1], motor_confidence[0], z)
@@ -249,8 +253,17 @@ plt.title('Trajectory', fontsize=14)
 
 plt.figure(figsize=(5, 4))
 plt.plot(np.arange(0, T-dt_brain, dt_brain), rho[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
-plt.plot(np.arange(0, T-dt_brain, dt_brain), s[:-1, 0], 'g', label='Sensory reading $ρ_{l_1}$, no noise')
+plt.plot(np.arange(0, T-dt_brain, dt_brain), s[:-1, 0], 'k', label='Sensory reading $ρ_{l_1}$, no noise')
 plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_x[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
+plt.xlabel('Time (s)')
+plt.ylabel('Luminance')
+plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
+plt.legend(loc = 4)
+
+plt.figure(figsize=(5, 4))
+plt.plot(np.arange(0, T-dt_brain, dt_brain), rho[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
+plt.plot(np.arange(0, T-dt_brain, dt_brain), s[:-1, 0], 'k', label='Sensory reading $ρ_{l_1}$, no noise')
+#plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_x[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
 plt.xlabel('Time (s)')
 plt.ylabel('Luminance')
 plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
