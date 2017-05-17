@@ -18,9 +18,9 @@ import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.fftpack
 
-dt_brain = .005
+dt_brain = .05
 dt_world = .005
-T = 200
+T = 20
 iterations = int(T/dt_brain)
 plt.close('all')
 np.random.seed(42)
@@ -193,7 +193,9 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
         eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
         eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, :], gamma_w_m)
-        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w_m)         # no prediction errors on rho_m since velocities are implemented instantenously
+        FE[i] = .5 * (np.dot(eps_z[i, :], np.transpose(xi_z[i, :])) + np.dot(eps_w[i, :], np.transpose(xi_w[i, :])) + np.dot(eps_z_m[i, :], np.transpose(xi_z_m[i, :]))) + np.log(np.prod(np.exp(gamma_z)) * np.prod(np.exp(gamma_w_m)))
+#        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w)
+
         
         # find derivatives
         dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)
@@ -226,7 +228,7 @@ z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose
 sensor_confidence = np.array([- 12., noise_level])
 prior_confidence = np.array([- 32., noise_level - 1])
 motor_confidence = np.array([noise_level - 12, 2.])
-learning_rate = 10
+learning_rate = 1
 
 agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
 #agent_position2, rho2, rho_m2, mu_x2, mu_m2, foo = BraitenbergFreeEnergy(noise_level, sensor_confidence[0], prior_confidence[1], motor_confidence[0], z)
@@ -237,7 +239,7 @@ agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_
 x_light = np.array([59.,47.])
 
 
-F_interval = 2
+F_interval = 20
 plt.figure(figsize=(5, 4))
 plt.plot(np.arange(0, F_interval, dt_brain), F[:int(F_interval / dt_brain)])
 plt.title('Free Energy')
