@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 dt = .01
-T = 1000
+T = 10
 iterations = int(T/dt)
 
 ### agent ###

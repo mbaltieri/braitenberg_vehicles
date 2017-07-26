@@ -16,7 +16,7 @@ import scipy.fftpack
 
 dt_brain = .005
 dt_world = .0005
-T = 200
+T = 20
 iterations = int(T/dt_brain)
 plt.close('all')
 np.random.seed(42)
@@ -59,12 +59,12 @@ def g(x, v):
 
 def f(x_agent, v_agent, v_motor, theta, v, w, a, i):
 #    # vehicle 3a - lover
-#    v_motor[i, 0] = l_max - a[0]
-#    v_motor[i, 1] = l_max - a[1]
+    v_motor[i, 0] = l_max - a[1]
+    v_motor[i, 1] = l_max - a[0]
     
     # vehicle 2b - aggressor
-    v_motor[i, 0] = a[0]
-    v_motor[i, 1] = a[1]
+#    v_motor[i, 0] = a[0]
+#    v_motor[i, 1] = a[1]
     
     # translation
     v_agent[i] = (v_motor[i, 0] + v_motor[i, 1]) / 2
@@ -209,7 +209,7 @@ def Braitenberg(noise_level, desired_confidence, z2):
 
 
 
-noise_level = - 5.
+noise_level = 1.
 gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
 real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
