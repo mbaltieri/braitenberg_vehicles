@@ -241,12 +241,12 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         # body
         gamma_w_l[i, :] = k_1 * sigma(mu_c[i, :])
 #        gamma_w_l[i, :] = -3
-#        gamma_w_l[i, :] = 3
+        gamma_w_l[i, :] = 3
         pi_w_l[i, :] = np.exp(gamma_w_l[i, :])
         
         gamma_z_c[i, :] = k_1 * sigma(mu_c[i, :])
 #        gamma_z_c[i,:] = -3
-#        gamma_z_c[i,:] = 3
+        gamma_z_c[i,:] = 3
         pi_z_c[i, :] = np.exp(gamma_z_c[i, :])
         
 #        gamma_z_l[i, :] = - k_1 * sigma(mu_c[i, :])
@@ -255,11 +255,12 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         
         gamma_w_c_dot = - k_2 * gamma_w_c[i, :] + k_3 * sigma(mu_c[i, :])
         gamma_w_c[i+1, :] = gamma_w_c[i, :] + dt_brain * gamma_w_c_dot
-        gamma_w_c[i, :] = 3
-#        gamma_w_c[i, :] = -3
+#        gamma_w_c[i, :] = 3
+        gamma_w_c[i, :] = -3
         pi_w_c[i, :] = np.exp(gamma_w_c[i, :])
         
         gamma_z_l[i, :] = gamma_w_c[i, :]
+#        gamma_z_l[i, :] = 3
         pi_z_l[i, :] = np.exp(gamma_z_l[i, :])
         
         
@@ -274,7 +275,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         dFdmu_l = pi_z_l[i, :] * (mu_l[i, :] - l[i, :]) + pi_w_l[i, :] * (mu_l[i, :] - mu_v_l[i, :]) - pi_w_m * (mu_m[i, :] - mu_l[i, ::-1] - mu_c[i, ::-1]) - pi_z_l[i, :] * z_l[i, :] / np.sqrt(dt_brain)            # vehicle 2b - aggressor
         dFdmu_c = pi_z_c[i, :] * (mu_c[i, :] - c[i, :]) + pi_w_c[i, :] * (mu_c[i, :] - mu_v_c[i, :]) - pi_w_m * (mu_m[i, :] - mu_l[i, ::-1] - mu_c[i, ::-1]) - pi_z_c[i, :] * z_c[i, :] / np.sqrt(dt_brain)
 #        dFdmu_c = pi_z_c * (mu_c[i, :] - c[i, :]) + pi_w_c[i, 0] * (mu_c[i, :] - mu_v_c[i, :])
-        dFdmu_c = pi_w_c[i, 0] * (mu_c[i, :] - mu_v_c[i, :])
+#        dFdmu_c = pi_w_c[i, 0] * (mu_c[i, :] - mu_v_c[i, :])
         dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_l[i, ::-1] - mu_c[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                                  # vehicle 2b - aggressor
 #        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drho_lda)
         
@@ -391,7 +392,7 @@ plt.plot(gamma_z_l)
 plt.title('Gamma_z_l', fontsize=14)
 
 plt.figure()
-plt.plot(mu_c)
+plt.plot(mu_c[:10,:])
 plt.title('MU_c', fontsize=14)
 
 #points = 100
