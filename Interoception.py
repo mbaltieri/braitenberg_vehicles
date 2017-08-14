@@ -48,7 +48,7 @@ turning_speed = 30.
 
 def sigma(x):
 #    return 1 / (1 + np.exp(-x))
-    return np.tanh(x)
+    return np.tanh(5*x)
 
 def light_level(x_agent):
     sigma_x = 30.
