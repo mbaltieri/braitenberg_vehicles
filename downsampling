@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 15 15:30:29 2017
+
+Downsampling or different time steps for the simulation of an agent and its environment
+
+@author: mb540
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.close('all')
+
+env_brain_ratio = 1000
+
+dt_world = .01
+dt_brain = dt_world / env_brain_ratio
+T = .1
+iterations = int(T/dt_world)
+#np.random.seed(42)
+
+
+#w = .1*np.random.randn(iterations, 2)
+#w[:,1] = .1*np.random.randn(iterations,)
+#x = np.zeros((iterations, 2, 2))
+#mu_x = np.zeros((iterations * env_brain_ratio, 2))
+#x[0,0] = 1.
+#alpha = 1.0
+#beta = 1.0
+#
+#for i in range(iterations-1):
+#    x[i, 0, 1] = - alpha * x[i, 0, 0] + w[i, 0]/np.sqrt(dt_world)
+#    x[i, 1, 0] = x[i, 0, 0] + w[i, 1]
+#    
+#    for j in np.arange(i*env_brain_ratio, (i+1)*env_brain_ratio):
+#        mu_x[j, 1] = - beta * mu_x[j, 0] + x[i, 0, 0] + w[i, 1]/np.sqrt(dt_brain)
+#        mu_x[j+1, 0] = mu_x[j, 0] + dt_brain * mu_x[j, 1]
+#    
+#    x[i+1, 0, 0] = x[i, 0, 0] + dt_world * x[i, 0, 1]
+#    
+#plt.figure()
+#plt.plot(np.arange(0, T, dt_brain), np.repeat(x[:, 1, 0], env_brain_ratio, axis=0), 'b')
+#plt.plot(np.arange(0, T, dt_brain), np.repeat(x[:, 0, 0], env_brain_ratio, axis=0), 'g')
+#plt.plot(np.arange(0, T, dt_brain), mu_x[:, 0], 'r')
+#
+
+
+
+
+brain_env_ratio = 100
+
+dt_brain = .01
+dt_world = dt_brain / brain_env_ratio
+T = 1
+iterations = int(T/dt_world)
+#np.random.seed(42)
+
+
+w = .1*np.random.randn(iterations, 2)
+w[:,1] = 1*np.random.randn(iterations,)
+x = np.zeros((iterations, 2, 2))
+mu_x = np.zeros((int(iterations / brain_env_ratio)+1, 2))
+x[0,0] = 1.
+alpha = 1.0
+beta = 1.0
+
+j = 0
+
+for i in range(iterations-1):
+    x[i, 0, 1] = - alpha * x[i, 0, 0] + w[i, 0]/np.sqrt(dt_world)
+    x[i, 1, 0] = x[i, 0, 0] + w[i, 1]
+    
+    if np.mod(i, brain_env_ratio) == 0:
+        mu_x[j, 1] = - beta * mu_x[j, 0] + x[i, 0, 0] + w[i, 1]/np.sqrt(dt_brain)
+        mu_x[j+1, 0] = mu_x[j, 0] + 10*dt_brain * mu_x[j, 1]
+        j += 1
+    
+    x[i+1, 0, 0] = x[i, 0, 0] + dt_world * x[i, 0, 1]
+    
+plt.figure()
+plt.plot(np.arange(0, T, dt_world), x[:, 1, 0], 'b')
+plt.plot(np.arange(0, T, dt_world), x[:, 0, 0], 'g')
+plt.plot(np.arange(0, T, dt_world), np.repeat(mu_x[:-1, 0], brain_env_ratio, axis=0), 'r')
+
+
+
+
+dt = .01
+T = 100
+iterations = int(T/dt)
+#np.random.seed(42)
+
+
+w = .1*np.random.randn(iterations, 2)
+w[:,1] = .1*np.random.randn(iterations,)
+x = np.zeros((iterations, 3, 2))
+#x[0,0] = 2.
+alpha = 1.0
+beta = 1.0
+
+for i in range(iterations-1):
+    x[i, 0, 1] = - alpha * x[i, 0, 0] + w[i, 0]/np.sqrt(dt)
+    x[i, 1, 0] = x[i, 0, 0] + w[i, 1]
+    x[i, 2, 1] = - beta * x[i, 2, 0] + x[i, 0, 0] + w[i, 1]/np.sqrt(dt)
+    
+    x[i+1, 0, 0] = x[i, 0, 0] + dt * x[i, 0, 1]
+    x[i+1, 2, 0] = x[i, 2, 0] + dt * x[i, 2, 1]
+    
+plt.figure()
+plt.plot(x[:, 1, 0], 'b', x[:, 0, 0], 'g', x[:, 2, 0], 'r')
+
+x0 = np.var(x[int(iterations/5):, 0, 0])
+x1 = np.var(x[int(iterations/5):, 1, 0])
+x2 = np.var(x[int(iterations/5):, 2, 0])
+print(x0, x1, x2)
