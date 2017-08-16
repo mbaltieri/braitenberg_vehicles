@@ -21,7 +21,7 @@ dt_world = .005
 T = 20
 iterations = int(T/dt_brain)
 plt.close('all')
-np.random.seed(42)
+#np.random.seed(42)
 
 sensors_n = 2
 motors_n = 2
@@ -53,6 +53,12 @@ def light_level(x_agent):
             - 1 / (2 * (1 - corr ** 2)) * ((x_agent[0] - mu[0]) ** 2 / 
             (sigma_x ** 2) + (x_agent[1] - mu[1]) ** 2 / (sigma_y ** 2) - 
             2 * corr * (x_agent[0] - mu[0]) * (x_agent[1] - mu[1]) / (sigma_x * sigma_y)))
+    
+    
+#    x_light = 59
+#    sigma_x = 30.
+#    mu = x_light    
+#    return 81 * l_max / (np.sqrt(2 * np.pi) * sigma_x) * np.exp(- (x_agent[0] - mu) ** 2 / (sigma_x ** 2))
 
 
 # free energy functions
@@ -208,7 +214,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     return x_agent, s, rho, v_motor, mu_x, mu_m, FE, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w
 
 
-noise_level = - 7.
+noise_level = 2.
 gamma_z = noise_level * np.ones((sensors_n, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
 real_pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
@@ -216,9 +222,9 @@ sigma_z = 1 / (np.sqrt(real_pi_z))
 z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose()
 
 sensor_confidence = np.array([- 12., noise_level])
-prior_confidence = np.array([- 32., noise_level - 0])
-motor_confidence = np.array([noise_level - 0, 2.])
-learning_rate = 100000
+prior_confidence = np.array([- 32., noise_level -1])
+motor_confidence = np.array([noise_level - 12, 2.])
+learning_rate = 1
 
 agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
 #agent_position2, rho2, rho_m2, mu_x2, mu_m2, foo = BraitenbergFreeEnergy(noise_level, sensor_confidence[0], prior_confidence[1], motor_confidence[0], z)
@@ -277,19 +283,19 @@ plt.ylabel('Velocity')
 plt.title('Proprioceptor $ρ_{m_2}$, $\mu_{m_2}$', fontsize=14)
 plt.legend(loc = 4)
 
-#points = 100
-#x_map = range(points)
-#y_map = range(points)
-#light = np.zeros((points, points))
-#
-#for i in range(points):
-#    for j in range(points):
-#        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
-#
-#light_fig = plt.figure()
-#light_map = plt.imshow(light, extent=(0., points, 0., points),
-#           interpolation='nearest', cmap='jet')
-#cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
+points = 100
+x_map = range(points)
+y_map = range(points)
+light = np.zeros((points, points))
+
+for i in range(points):
+    for j in range(points):
+        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
+
+light_fig = plt.figure()
+light_map = plt.imshow(light, extent=(0., points, 0., points),
+           interpolation='nearest', cmap='jet')
+cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
 
 plt.figure()
 plt.semilogy(xi_z[:, 0], 'b', label = 'PE left light sensor')

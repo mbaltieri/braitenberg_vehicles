@@ -211,7 +211,7 @@ def Braitenberg(noise_level, desired_confidence, z2):
 
 
 
-noise_level = -7.
+noise_level = -5.
 gamma_z = noise_level * np.ones((obs_states, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
 real_pi_z = np.exp(gamma_z) * np.ones((obs_states, ))
