@@ -174,14 +174,19 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     w_m = (np.dot(np.diag(sigma_w_m), np.random.randn(motors_n, iterations))).transpose()
 
 
+    # learning rate update with AdaDelta
+    RMS_variables = np.zeros((iterations, 4))
+    RMS_gradients = np.zeros((iterations, 4))
+    k = np.zeros((iterations, 4))
+    
+    gamma = .5                      # decay rate
+    epsilon = np.exp(-8)            # back-to-numerical-reality addend, default: `sqrt(epsilon)`
+    
+    
     ### initialisation
     v = np.array([l_max, l_max])
     mu_v[0, :] = v
-#    a[0, :] = np.array([30, 20])
-#    mu_x[0, :] = v
-    #
-#    drhoda = - np.array([[1., 0.], [0., 1.]])             # vehicle 3a - lover
-#    drhoda = np.array([[0., 1.], [1., 0.]])             # vehicle 2b - aggressor
+
     drhoda = np.array([[1., 0.], [0., 1.]])             # vehicle 2b - aggressor
     x_agent[0, :] = np.array([0., 0.])
     theta[0] = np.pi / 2
@@ -199,9 +204,18 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                 # vehicle 2b - aggressor
 #        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
         
+        
+        # update learning rates with AdaDelta
+        dFdx = np.array([dFdmu_x,dFdmu_m]).reshape((4,))
+        RMS_gradients[i+1] = gamma * RMS_gradients[i] + (1 - gamma) * dFdx ** 2
+    
+        k[i+1] = np.sqrt(RMS_variables[i] + epsilon) / np.sqrt(RMS_gradients[i+1] + epsilon)
+    
+        RMS_variables[i+1] = gamma * RMS_variables[i] + (1 - gamma) * (k[i+1] * dFdx) ** 2
+        
         # update equations
-        mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k * dFdmu_x)
-        mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k * dFdmu_m)
+        mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k[i+1,:2] * dFdmu_x)
+        mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k[i+1,2:] * dFdmu_m)
 #        a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
 #        mu_x[i + 1, :] = (pi_z * rho[i, :] + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
 #        mu_m[i + 1, :] = (pi_z_m * v_motor[i, :] + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
