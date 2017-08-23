@@ -195,7 +195,7 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
 #        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w_m)         # no prediction errors on rho_m since velocities are implemented instantenously
         
         # find derivatives
-        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :] + z[i, :] / np.sqrt(dt_brain)) #+ pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1])
+        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :] + z[i, :] / np.sqrt(dt_brain))# + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1])
         dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                 # vehicle 2b - aggressor
 #        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
         
@@ -210,11 +210,11 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
 #        mu_m[i + 1, :] = (pi_z_m * v_motor[i, :] + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
 #        mu_x[i, :] = (pi_z * (s[i, :] + z[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
 #        mu_m[i + 1, :] = (pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
-        a[i + 1, :] = mu_m[i+1, :]                                        # there is no real noise, I'm free to do this
+        a[i + 1, :] = mu_m[i + 1, :]                                        # there is no real noise, I'm free to do this
         
     return x_agent, s, rho, v_motor, mu_x, mu_m, FE, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, finish_time
 
-noise_level = -4.
+noise_level = 3.
 gamma_z = noise_level * np.ones((sensors_n, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
 real_pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
@@ -222,9 +222,9 @@ sigma_z = 1 / (np.sqrt(real_pi_z))
 z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose()
 
 sensor_confidence = np.array([- 12., noise_level])
-prior_confidence = np.array([- 32., noise_level + 2.])
-motor_confidence = np.array([noise_level - 12, 2.])
-learning_rate = 10
+prior_confidence = np.array([- 4., noise_level - 1.])
+motor_confidence = np.array([noise_level - 12, 0.])
+learning_rate = 10           # photoaxis
 
 agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, finish_time = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)
 
@@ -236,8 +236,8 @@ print(x0, x1, x2, x3)
 
 prior_confidence_interval = np.arange(noise_level - 4., noise_level + 4., .2)
 precisions_n = len(prior_confidence_interval)
-agents_n = 10
-learning_rate_interval = np.arange(10, 200, 10)         # max 1, > 1 is unstable
+agents_n = 20
+learning_rate_interval = np.arange(1, 100, 1)         # max 1, > 1 is unstable
 learning_rate_n = len(learning_rate_interval) 
 finishing_time = np.zeros((precisions_n, agents_n, learning_rate_n))
 
