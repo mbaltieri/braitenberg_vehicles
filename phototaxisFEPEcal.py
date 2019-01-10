@@ -12,9 +12,9 @@ hidden_states to get easier matrix multiplications, the extra elements are = 0.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from mpl_toolkits.mplot3d import Axes3D
-import scipy.fftpack
+#import matplotlib.cm as cm
+#from mpl_toolkits.mplot3d import Axes3D
+#import scipy.fftpack
 
 dt_brain = .05
 dt_world = .005
@@ -112,7 +112,7 @@ def FreeEnergy(y, mu_x, mu_v, mu_gamma_z, mu_gamma_w):
                  np.log(np.prod(np.exp(mu_gamma_z)) *
                         np.prod(np.exp(mu_gamma_w))))
 
-def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, motor_confidence, z1, learning_rate):
+def BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence, prior_confidence, motor_confidence, z1, learning_rate):
     s = np.zeros((iterations, sensors_n))
     v = np.zeros((sensors_n))
     theta = np.zeros((iterations, ))                            # orientation of the agent
@@ -172,58 +172,63 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
     ### initialisation
     v = np.array([l_max, l_max])
     mu_v[0, :] = v
-#    a[0, :] = np.array([30, 20])
-#    mu_x[0, :] = v
-    #
+
+    # these partial derivatives are not used at the moment, since action is set to the expected proprioceptive state
 #    drhoda = - np.array([[1., 0.], [0., 1.]])             # vehicle 3a - lover
 #    drhoda = np.array([[0., 1.], [1., 0.]])             # vehicle 2b - aggressor
     drhoda = np.array([[1., 0.], [0., 1.]])             # vehicle 2b - aggressor
-#    x_agent[0, :] = np.array([70., 10.])
+
+
     random_angle = 2 * np.pi * np.random.rand()
     random_norm = 60 + 10 * np.random.rand() - 5
     x_agent[0, :] = np.array([9.,37.]) + np.array([random_norm * np.cos(random_angle), random_norm * np.sin(random_angle)])
-#    theta[0] = np.pi / 2
     theta[0] = np.pi * np.random.rand()
     
     for i in range(iterations - 1):
         s[i, :], rho[i, :], v_motor[i, :] = getObservationFE(x_agent, v_agent, v_motor, theta, v, z_m[i, :], z[i, :], a[i, :], i)
         
-        
-        # vehicle 2a - coward
-        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
-        eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
-        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, :], gamma_w_m)
-#        
-#        # vehicle 2b - aggressor
-#        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
-#        eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
-#        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, ::-1], gamma_w_m)
-#        
-#        # vehicle 3a - lover
-#        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
-#        eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
-#        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], l_max - mu_m[i, :], gamma_w_m)
-        
-#        # vehicle 3b - explorer
-#        eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
-#        eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
-#        eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], l_max - mu_m[i, ::-1], gamma_w_m)
+        if simulation == 0:
+            # vehicle 2a - coward
+            eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
+            eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
+            eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, :], gamma_w_m)
+        elif simulation == 1:
+            # vehicle 2b - aggressor
+            eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
+            eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
+            eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], mu_m[i, ::-1], gamma_w_m)
+        elif simulation == 2:
+            # vehicle 3a - lover
+            eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
+            eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
+            eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], l_max - mu_m[i, :], gamma_w_m)
+        elif simulation == 3:
+            # vehicle 3b - explorer
+            eps_z[i, :], xi_z[i, :] = sensoryErrors(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z)
+            eps_z_m[i, :], xi_z_m[i, :] = sensoryErrors(v_motor[i, :], mu_m[i, :], mu_v[i, :], gamma_z_m)
+            eps_w[i, :], xi_w[i, :] = dynamicsErrors(mu_x[i, :], l_max - mu_m[i, ::-1], gamma_w_m)
         
         FE[i] = .5 * (np.dot(eps_z[i, :], np.transpose(xi_z[i, :])) + np.dot(eps_w[i, :], np.transpose(xi_w[i, :])) + np.dot(eps_z_m[i, :], np.transpose(xi_z_m[i, :]))) + np.log(np.prod(np.exp(gamma_z)) * np.prod(np.exp(gamma_z_m)) * np.prod(np.exp(gamma_w_m)))
-#        FE[i] = FreeEnergy(rho[i, :], mu_x[i, :], mu_v[i, :], gamma_z, gamma_w)
 
         
         # find derivatives
-        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain)               # vehicle 2a - coward
-#        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)            # vehicle 2b - aggressor
-#        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain)        # vehicle 3a - lover
-#        dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - l_max + mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)     # vehicle 3b - explorer
-
-
-        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, :]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                                     # vehicle 2a - coward
-#        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                                  # vehicle 2b - aggressor
-#        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                               # vehicle 3a - lover
-#        dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)                            # vehicle 3b - explorer
+        if simulation == 0:
+            # vehicle 2a - coward
+            dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain)
+            dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, :]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)
+        elif simulation == 1:
+            # vehicle 2b - aggressor
+            dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)
+            dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i, :]) +  pi_w_m * (mu_m[i, :] - mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)
+        elif simulation == 2:
+            # vehicle 3a - lover
+            dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :]) - pi_z * z[i, :] / np.sqrt(dt_brain)
+            dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, :]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)
+        elif simulation == 3:
+            # vehicle 3b - explorer
+            dFdmu_x = pi_z * (mu_x[i, :] - s[i, :]) + pi_w * (mu_x[i, :] - mu_v[i, :]) + pi_w_m * (mu_m[i, :] - l_max + mu_x[i, ::-1]) - pi_z * z[i, :] / np.sqrt(dt_brain)
+            dFdmu_m = pi_z_m * (mu_m[i, :] - v_motor[i,:]) +  pi_w_m * (mu_m[i, :] - l_max + mu_x[i, ::-1]) - pi_z_m * z_m[i, :] / np.sqrt(dt_brain)
+                                       
 
 
 #        dFda[i, :] = np.dot((pi_z_m * (v_motor[i, :] - mu_m[i, :]) + pi_z_m * z_m[i, :] / np.sqrt(dt_brain)), drhoda)
@@ -232,18 +237,24 @@ def BraitenbergFreeEnergy(noise_level, sensor_confidence, prior_confidence, moto
         mu_x[i + 1, :] = mu_x[i, :] + dt_brain * (- k * dFdmu_x)
         mu_m[i + 1, :] = mu_m[i, :] + dt_brain * (- k * dFdmu_m)
 #        a[i + 1, :] = a[i, :] + dt_brain * (- k * dFda[i, :])
-#        mu_x[i, :] = (pi_z * rho[i, :] + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
-#        mu_m[i + 1, :] = (pi_z_m * v_motor[i, :] + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
-#        mu_x[i, :] = (pi_z * (s[i, :] + z[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_m[i, ::-1]) / (pi_z + pi_w_m)
-#        mu_m[i + 1, :] = (pi_z_m * (v_motor[i, :] + z_m[i, :] / np.sqrt(dt_brain)) + pi_w_m * mu_x[i, ::-1]) / (pi_z_m + pi_w_m)
-        a[i + 1, :] = mu_m[i, :]                                        # vehicle 2b - aggressor
-#        mu_x[i + 1, :] = (pi_z * rho[i, :] + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
-#        mu_x[i + 1, :] = (pi_z * s[i, :] + z[i, :] / np.sqrt(dt_brain) + pi_w * mu_x[i, ::-1]) / (pi_z + pi_w)
+        a[i + 1, :] = mu_m[i, :]                        # approximating action by assuming instantenous integration
         
     return x_agent, s, rho, v_motor, mu_x, mu_m, FE, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, theta[0]
 
+# 0: vehicle 2a - coward        
+# 1: vehicle 2b - aggressor
+# 2: vehicle 3a - lover
+# 3: vehicle 3b - explorer
+# 4: pathological behaviour of, for instance, vehicle 2b
 
-noise_level = 3.
+simulation = 1
+
+if simulation < 4:
+    noise_level = 3.
+else:
+    simulation = 1              # testing pathoological behaviour only on vehicle 2b, can easily be adapted
+    noise_level = -3.
+
 gamma_z = noise_level * np.ones((sensors_n, ))    # log-precisions
 pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
 real_pi_z = np.exp(gamma_z) * np.ones((sensors_n, ))
@@ -253,36 +264,29 @@ z = (np.dot(np.diag(sigma_z), np.random.randn(sensors_n, iterations))).transpose
 sensor_confidence = np.array([- 12., noise_level])
 prior_confidence = np.array([- 4., noise_level - 1.])
 motor_confidence = np.array([noise_level - 12, 0.])
-learning_rate = 1           # photoaxis
-#learning_rate = .5          # pathological
+learning_rate = 1
 
 perturbation_constant = .2
 perturbation = .2 * np.random.randn(1, 3)
-agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position2, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle2 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position2, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle2 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position3, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle3 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position3, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle3 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position4, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle4 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position4, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle4 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position5, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle5 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position5, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle5 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position6, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle6 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position6, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle6 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position7, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle7 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position7, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle7 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position8, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle8 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position8, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle8 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 perturbation = .2 * np.random.randn(1, 3)
-agent_position9, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle9 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
+agent_position9, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle9 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
 
-agent_position10, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle10 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)          # phototaxis
-#perturbation = .2 * np.random.randn(1, 3)
-#agent_position11, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle11 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
-#perturbation = .2 * np.random.randn(1, 3)
-#agent_position12, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle12 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[1]+perturbation[0,1], motor_confidence[0]+perturbation[0,2], z, learning_rate)          # phototaxis
-
-
+agent_position10, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle10 = BraitenbergFreeEnergy(simulation, noise_level, sensor_confidence[1], prior_confidence[1], motor_confidence[0], z, learning_rate)          # phototaxis
 x_light = np.array([9.,37.])
 
 
@@ -368,187 +372,3 @@ plt.xlabel('Time (s)')
 plt.ylabel('Luminance, Motor velocity')
 plt.title('Beliefs $\mu_{l_1}$, $\mu_{m_2}$', fontsize=14)
 plt.legend(loc = 4)
-
-#plt.figure(figsize=(5, 4))
-#plt.plot(np.arange(0, T_world-dt_world, dt_world), rho_m[:-1, 1], 'b', label='Motor reading $ρ_{m_2}$')
-#plt.plot(np.arange(0, T_world-dt_world, dt_world), mu_m[:-1, 1], ':r', label='Belief about motor reading $\mu_{m_2}$')
-#plt.xlabel('Time (s)')
-#plt.ylabel('Velocity')
-#plt.title('Proprioceptor $ρ_{m_2}$, $\mu_{m_2}$', fontsize=14)
-#plt.legend(loc = 4)
-
-#points = 100
-#x_map = range(points)
-#y_map = range(points)
-#light = np.zeros((points, points))
-#
-#for i in range(points):
-#    for j in range(points):
-#        light[i, j] = light_level(np.array([x_map[j], y_map[i]])) + sigma_z[0] * np.random.randn()
-#
-#light_fig = plt.figure()
-#light_map = plt.imshow(light, extent=(0., points, 0., points),
-#           interpolation='nearest', cmap='jet')
-#cbar = light_fig.colorbar(light_map, shrink=0.5, aspect=5)
-
-#plt.figure()
-#plt.semilogy(xi_z[:, 0], 'b', label = 'PE left light sensor')
-#plt.semilogy(xi_w[:, 0], 'r', label = 'PE prior')
-#plt.semilogy(xi_z_m[:, 1], 'g', label = 'PE right motor')
-#plt.legend(loc = 4)
-
-#
-#
-#
-#plt.figure(figsize=(5, 4))
-#plt.plot(np.arange(0, T-dt, dt), rho2[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
-#plt.plot(np.arange(0, T-dt, dt), mu_x2[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
-#plt.xlabel('Time (s)')
-#plt.ylabel('Luminance')
-#plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
-#plt.legend(loc = 4)
-#
-#
-#
-#
-#plt.figure(figsize=(5, 4))
-#plt.plot(agent_position3[:, 0], agent_position3[:, 1])
-#plt.xlim((0,80))
-#plt.ylim((0,80))
-#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
-#plt.plot(agent_position3[0, 0], agent_position3[0, 1], color='red', marker='o', markersize=8)
-#plt.title('Trajectory', fontsize=14)
-#
-#plt.figure(figsize=(5, 4))
-#plt.plot(np.arange(0, T-dt, dt), rho3[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
-#plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
-#plt.xlabel('Time (s)')
-#plt.ylabel('Luminance')
-#plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
-#plt.legend(loc = 4)
-#
-#plt.figure(figsize=(5, 4))
-#plt.plot(np.arange(0, T-dt, dt), mu_x3[:-1, 0], 'b', label='Belief about sensory reading $\mu_{l_1}$')
-#plt.plot(np.arange(0, T-dt, dt), mu_m3[:-1, 1], ':r', label='Belief about motor reading $\mu_{m_2}$')
-#plt.xlabel('Time (s)')
-#plt.ylabel('Luminance, Motor velocity')
-#plt.title('Beliefs $\mu_{l_1}$, $\mu_{m_2}$', fontsize=14)
-#plt.legend(loc = 4)
-#
-#F_interval = 2
-#plt.figure(figsize=(5, 4))
-#plt.plot(np.arange(0, F_interval, dt), F3[:int(F_interval / dt)])
-#plt.title('Free Energy')
-#plt.xlabel('Time (s)')
-#
-#
-#perturbation_constant = .1
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position20, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle20 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position21, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle21 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position22, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle22 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position23, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle23 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position24, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle24 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position25, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle25 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position26, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle26 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position27, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle27 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#perturbation = perturbation_constant * np.random.randn(1, 3)
-#agent_position28, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle28 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#agent_position29, s, rho, rho_m, mu_x, mu_m, F, eps_z, xi_z, eps_z_m, xi_z_m, eps_w, xi_w, initial_angle29 = BraitenbergFreeEnergy(noise_level, sensor_confidence[1]+perturbation[0,0], prior_confidence[0]+perturbation[0,0], motor_confidence[1]+perturbation[0,0], z, learning_rate)          # pathological
-#
-#F_interval = .2
-#plt.figure(figsize=(5, 4))
-#plt.plot(np.arange(0, F_interval, dt_world), F[:int(F_interval / dt_world)])
-#plt.title('Free Energy')
-#plt.xlabel('Time (s)')
-#
-#plt.figure(figsize=(5, 4))
-#plt.plot(agent_position20[:, 0], agent_position20[:, 1], color='green')
-#plt.plot(agent_position21[:, 0], agent_position21[:, 1], color='green')
-#plt.plot(agent_position22[:, 0], agent_position22[:, 1], color='green')
-#plt.plot(agent_position23[:, 0], agent_position23[:, 1], color='green')
-#plt.plot(agent_position24[:, 0], agent_position24[:, 1], color='green')
-#plt.plot(agent_position25[:, 0], agent_position25[:, 1], color='green')
-#plt.plot(agent_position26[:, 0], agent_position26[:, 1], color='green')
-#plt.plot(agent_position27[:, 0], agent_position27[:, 1], color='green')
-#plt.plot(agent_position28[:, 0], agent_position28[:, 1], color='green')
-#plt.plot(agent_position29[:, 0], agent_position29[:, 1], color='blue')
-##plt.xlim((0,80))
-##plt.ylim((0,80))
-#plt.plot(x_light[0], x_light[1], color='orange', marker='o', markersize=20)
-#plt.plot(agent_position20[0, 0], agent_position20[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position21[0, 0], agent_position21[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position22[0, 0], agent_position22[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position23[0, 0], agent_position23[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position24[0, 0], agent_position24[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position25[0, 0], agent_position25[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position26[0, 0], agent_position26[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position27[0, 0], agent_position27[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position28[0, 0], agent_position28[0, 1], color='red', marker='o', markersize=15)
-#plt.plot(agent_position29[0, 0], agent_position29[0, 1], color='red', marker='o', markersize=15)
-#
-#orientation_endpoint = agent_position20[0, :] + 4*(np.array([np.cos(initial_angle20), np.sin(initial_angle20)]))
-#plt.plot([agent_position20[0, 0], orientation_endpoint[0]], [agent_position20[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position21[0, :] + 4*(np.array([np.cos(initial_angle21), np.sin(initial_angle21)]))
-#plt.plot([agent_position21[0, 0], orientation_endpoint[0]], [agent_position21[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position22[0, :] + 4*(np.array([np.cos(initial_angle22), np.sin(initial_angle22)]))
-#plt.plot([agent_position22[0, 0], orientation_endpoint[0]], [agent_position22[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position23[0, :] + 4*(np.array([np.cos(initial_angle23), np.sin(initial_angle23)]))
-#plt.plot([agent_position23[0, 0], orientation_endpoint[0]], [agent_position23[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position24[0, :] + 4*(np.array([np.cos(initial_angle24), np.sin(initial_angle24)]))
-#plt.plot([agent_position24[0, 0], orientation_endpoint[0]], [agent_position24[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position25[0, :] + 4*(np.array([np.cos(initial_angle25), np.sin(initial_angle25)]))
-#plt.plot([agent_position25[0, 0], orientation_endpoint[0]], [agent_position25[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position26[0, :] + 4*(np.array([np.cos(initial_angle26), np.sin(initial_angle26)]))
-#plt.plot([agent_position26[0, 0], orientation_endpoint[0]], [agent_position26[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position27[0, :] + 4*(np.array([np.cos(initial_angle27), np.sin(initial_angle27)]))
-#plt.plot([agent_position27[0, 0], orientation_endpoint[0]], [agent_position27[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position28[0, :] + 4*(np.array([np.cos(initial_angle28), np.sin(initial_angle28)]))
-#plt.plot([agent_position28[0, 0], orientation_endpoint[0]], [agent_position28[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#orientation_endpoint = agent_position29[0, :] + 4*(np.array([np.cos(initial_angle29), np.sin(initial_angle29)]))
-#plt.plot([agent_position29[0, 0], orientation_endpoint[0]], [agent_position29[0, 1], orientation_endpoint[1]], color='black', linewidth=2)
-#plt.title('Trajectory', fontsize=14)
-#
-#plt.figure(figsize=(5, 4))
-#plt.subplot(2,1,1)
-#plt.plot(np.arange(0, T_world-dt_world, dt_world), rho[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
-##plt.plot(np.arange(0, T_world-dt_world, dt_world), s[:-1, 0], 'k', label='Sensory reading $ρ_{l_1}$, no noise')
-#plt.plot(np.arange(0, T_world-dt_world, dt_world), mu_x[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
-##plt.xlabel('Time (s)')
-#plt.xticks([])
-#plt.ylabel('Luminance')
-#plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
-#plt.legend(loc = 4)
-#
-##plt.figure(figsize=(5, 4))
-##plt.plot(np.arange(0, T_world-dt_world, dt_world), rho[:-1, 0], 'b', label='Sensory reading $ρ_{l_1}$')
-##plt.plot(np.arange(0, T_world-dt_world, dt_world), s[:-1, 0], 'k', label='Sensory reading $ρ_{l_1}$, no noise')
-###plt.plot(np.arange(0, T-dt_brain, dt_brain), mu_x[:-1, 0], ':r', label='Belief about sensory reading $\mu_{l_1}$')
-##plt.xlabel('Time (s)')
-##plt.ylabel('Luminance')
-##plt.title('Exteroceptor $ρ_{l_1}$, $\mu_{l_1}$', fontsize=14)
-##plt.legend(loc = 4)
-##
-#plt.subplot(2,1,2)
-##plt.figure(figsize=(5, 2))
-#plt.plot(np.arange(0, T_world-dt_world, dt_world), mu_x[:-1, 0], 'b', label='Belief about sensory reading $\mu_{l_1}$')
-#plt.plot(np.arange(0, T_world-dt_world, dt_world), mu_m[:-1, 1], ':r', label='Belief about motor reading $\mu_{m_2}$')
-#plt.xlabel('Time (s)')
-#plt.ylabel('Luminance, Motor velocity')
-#plt.title('Beliefs $\mu_{l_1}$, $\mu_{m_2}$', fontsize=14)
-#plt.legend(loc = 4)
-#
-##plt.figure(figsize=(5, 4))
-##plt.plot(np.arange(0, T_world-dt_world, dt_world), rho_m[:-1, 1], 'b', label='Motor reading $ρ_{m_2}$')
-##plt.plot(np.arange(0, T_world-dt_world, dt_world), mu_m[:-1, 1], ':r', label='Belief about motor reading $\mu_{m_2}$')
-##plt.xlabel('Time (s)')
-##plt.ylabel('Velocity')
-##plt.title('Proprioceptor $ρ_{m_2}$, $\mu_{m_2}$', fontsize=14)
-##plt.legend(loc = 4)

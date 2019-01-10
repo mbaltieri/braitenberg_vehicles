@@ -3,7 +3,7 @@
 """
 Created on Fri Apr 21 16:34:30 2017
 
-Standard implementation of a Braitenberg vehicle
+Standard implementation of a Braitenberg vehicle, with a vertical "array" of light sources rather than a single spot.
 
 @author: mb540
 """
